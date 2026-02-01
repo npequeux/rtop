@@ -36,10 +36,12 @@ impl CpuMonitor {
         }
     }
     
+    #[allow(dead_code)]
     pub fn get_cpu_count(&self) -> usize {
         self.system.cpus().len()
     }
     
+    #[allow(dead_code)]
     pub fn get_cpu_data(&self, index: usize) -> Option<(&str, f32, &VecDeque<f32>)> {
         if index < self.system.cpus().len() {
             let cpu = &self.system.cpus()[index];

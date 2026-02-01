@@ -1,4 +1,4 @@
-use sysinfo::{System, Disks};
+use sysinfo::Disks;
 
 pub struct DiskMonitor {
     disks: Disks,

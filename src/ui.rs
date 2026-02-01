@@ -1,14 +1,13 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{
-    backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::{Line, Span},
     widgets::{
-        Axis, Block, Borders, Chart, Dataset, Gauge, Paragraph, Row, Table,
+        Axis, Block, Borders, Chart, Dataset, Paragraph, Row, Table,
     },
-    Frame, Terminal,
+    Frame,
 };
 use std::io;
 use std::time::{Duration, Instant};
@@ -592,7 +591,7 @@ impl App {
             .take(20)
             .enumerate()
             .map(|(i, p)| {
-                let cpu_color = if p.cpu_usage > 50.0 {
+                let _cpu_color = if p.cpu_usage > 50.0 {
                     Color::Red
                 } else if p.cpu_usage > 25.0 {
                     Color::Yellow
@@ -667,7 +666,7 @@ impl App {
     }
 
     fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
-        let (avg_temp, components, history) = self.temp_monitor.get_temperature_data();
+        let (avg_temp, _components, history) = self.temp_monitor.get_temperature_data();
         
         // Prepare history data
         let temp_data: Vec<(f64, f64)> = history

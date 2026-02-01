@@ -1,8 +1,7 @@
-use sysinfo::{Components, System};
+use sysinfo::Components;
 use std::collections::VecDeque;
 
 pub struct TempMonitor {
-    system: System,
     components: Components,
     history: VecDeque<f32>,
     has_temps: bool,
@@ -10,12 +9,10 @@ pub struct TempMonitor {
 
 impl TempMonitor {
     pub fn new() -> Self {
-        let system = System::new_all();
         let components = Components::new_with_refreshed_list();
         let has_temps = !components.is_empty();
         
         Self {
-            system,
             components,
             history: VecDeque::with_capacity(61),
             has_temps,

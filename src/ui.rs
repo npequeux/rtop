@@ -163,7 +163,7 @@ impl App {
         let title = vec![
             Line::from(vec![
                 Span::styled(" ▓▓ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled("mytop", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled("rtop", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                 Span::styled(" v2.0 ", Style::default().fg(Color::DarkGray)),
                 Span::raw("  │  "),
                 Span::styled("◆", Style::default().fg(Color::Green)),

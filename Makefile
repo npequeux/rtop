@@ -5,28 +5,28 @@ all: build
 
 # Build in debug mode
 build:
-	@echo "Building mytop (debug mode)..."
+	@echo "Building rtop (debug mode)..."
 	cargo build
 
 # Build in release mode (optimized)
 release:
-	@echo "Building mytop (release mode)..."
+	@echo "Building rtop (release mode)..."
 	cargo build --release
 	@echo ""
 	@echo "Build completed!"
-	@echo "Binary: target/release/mytop"
-	@echo "Size: $$(du -h target/release/mytop | cut -f1)"
+	@echo "Binary: target/release/rtop"
+	@echo "Size: $$(du -h target/release/rtop | cut -f1)"
 
 # Install to system
 install: release
-	@echo "Installing mytop to /usr/local/bin..."
-	sudo cp target/release/mytop /usr/local/bin/mytop
-	@echo "Installation complete! Run 'mytop' to start."
+	@echo "Installing rtop to /usr/local/bin..."
+	sudo cp target/release/rtop /usr/local/bin/rtop
+	@echo "Installation complete! Run 'rtop' to start."
 
 # Uninstall from system
 uninstall:
-	@echo "Uninstalling mytop..."
-	sudo rm -f /usr/local/bin/mytop
+	@echo "Uninstalling rtop..."
+	sudo rm -f /usr/local/bin/rtop
 	@echo "Uninstall complete."
 
 # Clean build artifacts
@@ -52,20 +52,20 @@ fmt:
 
 # Run the application
 run: build
-	@echo "Running mytop..."
+	@echo "Running rtop..."
 	cargo run
 
 # Run in release mode
 run-release: release
-	@echo "Running mytop (release)..."
+	@echo "Running rtop (release mode)..."
 	cargo run --release
 
 # Build Docker image
 docker:
 	@echo "Building Docker image..."
-	docker build -f Dockerfile.rust -t mytop-rust .
+	docker build -f Dockerfile.rust -t rtop-rust .
 	@echo ""
-	@echo "To run: docker run --rm -it --net=\"host\" --pid=\"host\" mytop-rust"
+	@echo "To run: docker run --rm -it --net=\"host\" --pid=\"host\" rtop-rust"
 
 # Check everything (format, lint, test, build)
 check: fmt clippy test build
@@ -73,7 +73,7 @@ check: fmt clippy test build
 
 # Show help
 help:
-	@echo "Makefile for mytop (Rust)"
+	@echo "Makefile for rtop (Rust)"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  make build         - Build in debug mode"

@@ -1,5 +1,5 @@
 [package]
-name = "mytop"
+name = "rtop"
 version = "1.0.0"
 edition = "2021"
 authors = ["Nicolas Pequeux"]
@@ -9,7 +9,7 @@ keywords = ["system", "monitoring", "top", "dashboard", "terminal"]
 categories = ["command-line-utilities"]
 
 [[bin]]
-name = "mytop"
+name = "rtop"
 path = "src/main.rs"
 
 [dependencies]

@@ -1,4 +1,4 @@
-# mytop
+# rtop
 
 System monitoring dashboard for terminal written in Rust.
 
@@ -22,10 +22,10 @@ System monitoring dashboard for terminal written in Rust.
 
 ```bash
 git clone <your-repo>
-cd mytop
+cd rtop
 source "$HOME/.cargo/env"
 cargo build --release
-sudo cp target/release/mytop /usr/local/bin/
+sudo cp target/release/rtop /usr/local/bin/
 ```
 
 ### Using Cargo
@@ -36,10 +36,10 @@ cargo install --path .
 
 ## Usage
 
-Start mytop with the `mytop` command:
+Start rtop with the `rtop` command:
 
 ```bash
-mytop
+rtop
 ```
 
 ### Keyboard Shortcuts
@@ -50,7 +50,7 @@ mytop
 - `m`: Sort processes by Memory usage
 UI Overview
 
-mytop features a modern, color-coded interface with:
+rtop features a modern, color-coded interface with:
 - **Dynamic colors**: Visual feedback based on system load (green/yellow/red)
 - **Rounded borders**: Clean, polished appearance
 - **Real-time graphs**: Historical data visualization with 60-second windows

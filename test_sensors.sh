@@ -45,6 +45,6 @@ else
 fi
 
 echo ""
-echo "4. Running mytop to check detection:"
+echo "4. Running rtop to check detection:"
 echo "   (will display for 3 seconds)"
-timeout 3 ./target/release/mytop || echo "   Application terminated"
+timeout 3 ./target/release/rtop || echo "   Application terminated"

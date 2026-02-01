@@ -677,11 +677,11 @@ impl App {
             base_color
         };
 
-        // Créer une barre visuelle plus élégante
-        let bar_length = 22;
+        // Create a more elegant visual bar
+        let bar_length = 20;
         let filled = ((percent / 100.0 * bar_length as f32) as usize).min(bar_length);
         
-        // Utiliser différents caractères pour un effet de dégradé
+        // Use different characters for gradient effect
         let mut bar = String::new();
         for i in 0..bar_length {
             if i < filled {
@@ -693,7 +693,7 @@ impl App {
             }
         }
 
-        // Icône selon le type
+        // Icon based on type
         let icon = match title {
             "Memory" => "▓",
             "Swap" => "▒",
@@ -711,23 +711,17 @@ impl App {
                     title,
                     Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                 ),
+                Span::raw("  "),
+                Span::styled(
+                    format!("{:>5.1}%", percent),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                ),
             ]),
-            Line::from(""),
             Line::from(vec![
                 Span::raw("  ["),
                 Span::styled(bar, Style::default().fg(color).add_modifier(Modifier::BOLD)),
                 Span::raw("]"),
             ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::raw("   "),
-                Span::styled(
-                    format!("{:.1}%", percent),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD).add_modifier(Modifier::UNDERLINED),
-                ),
-                Span::raw(" used"),
-            ]),
-            Line::from(""),
             Line::from(vec![
                 Span::raw("  "),
                 Span::styled(
@@ -737,9 +731,10 @@ impl App {
                 Span::styled(" / ", Style::default().fg(Color::DarkGray)),
                 Span::styled(
                     format_bytes(total, true),
-                    Style::default().fg(Color::Gray),
+                    Style::default().fg(Color::Cyan),
                 ),
             ]),
+            Line::from(""),
         ];
 
         Paragraph::new(lines)
@@ -755,53 +750,42 @@ impl App {
     fn draw_network(&self, frame: &mut Frame, area: Rect) {
         let (_, _, rx_sec, tx_sec, total_rx, total_tx) = self.network_monitor.get_network_data();
 
-        // Indicateurs d'activité
+        // Activity indicators
         let rx_indicator = if rx_sec > 1000000 { "●" } else if rx_sec > 10000 { "◐" } else { "○" };
         let tx_indicator = if tx_sec > 1000000 { "●" } else if tx_sec > 10000 { "◐" } else { "○" };
+
+        let rx_rate = format_bytes(rx_sec, false);
+        let tx_rate = format_bytes(tx_sec, false);
+        let rx_total = format_bytes(total_rx, false);
+        let tx_total = format_bytes(total_tx, false);
 
         let text = vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("  ▼ ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
-                Span::styled("Download ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled(rx_indicator, Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled(
-                    format_bytes(rx_sec, false),
-                    Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled("/s", Style::default().fg(Color::DarkGray)),
-            ]),
-            Line::from(vec![
-                Span::raw("    Total: "),
-                Span::styled(
-                    format_bytes(total_rx, false),
-                    Style::default().fg(Color::Gray),
-                ),
+                Span::styled("  ▼ Download ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled(rx_indicator, Style::default().fg(Color::Blue)),
+                Span::raw("  "),
+                Span::styled("▲ Upload ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(tx_indicator, Style::default().fg(Color::Green)),
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("  ▲ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::styled("Upload ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled(tx_indicator, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled(
-                    format_bytes(tx_sec, false),
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                ),
+                Span::raw("  "),
+                Span::styled(format!("{:>12}", rx_rate), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled("/s", Style::default().fg(Color::DarkGray)),
+                Span::raw("  "),
+                Span::styled(format!("{:>12}", tx_rate), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::styled("/s", Style::default().fg(Color::DarkGray)),
             ]),
             Line::from(vec![
-                Span::raw("    Total: "),
-                Span::styled(
-                    format_bytes(total_tx, false),
-                    Style::default().fg(Color::Gray),
-                ),
+                Span::raw("  "),
+                Span::styled(format!("{:>12}", rx_total), Style::default().fg(Color::Cyan)),
+                Span::styled(" total", Style::default().fg(Color::DarkGray)),
+                Span::raw(" "),
+                Span::styled(format!("{:>12}", tx_total), Style::default().fg(Color::Cyan)),
+                Span::styled(" total", Style::default().fg(Color::DarkGray)),
             ]),
+            Line::from(""),
         ];
 
         let paragraph = Paragraph::new(text).block(
@@ -829,8 +813,9 @@ impl App {
             COLORS[5]
         };
 
-        // Créer une barre horizontale élégante
-        let bar_length = 32;
+        // Create a compact horizontal bar
+        let available_width = area.width.saturating_sub(6).max(20) as usize;
+        let bar_length = available_width.min(40);
         let filled = ((percent / 100.0 * bar_length as f32) as usize).min(bar_length);
         let mut bar = String::new();
         for i in 0..bar_length {
@@ -854,38 +839,31 @@ impl App {
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::raw("   "),
-                Span::styled(
-                    format!("{:.1}%", percent),
-                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD).add_modifier(Modifier::UNDERLINED),
-                ),
-                Span::raw(" used"),
-            ]),
-            Line::from(""),
-            Line::from(vec![
                 Span::styled("  ● ", Style::default().fg(disk_color).add_modifier(Modifier::BOLD)),
-                Span::raw("Used:  "),
                 Span::styled(
-                    format_bytes(used, true),
+                    format!("{:>5.1}%", percent),
+                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("  Used: "),
+                Span::styled(
+                    format!("{:<10}", format_bytes(used, true)),
                     Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::from(vec![
-                Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
+                Span::styled("  ○ ", Style::default().fg(Color::Green)),
                 Span::raw("Free:  "),
                 Span::styled(
-                    format_bytes(available, true),
-                    Style::default().fg(Color::Gray),
+                    format!("{:<10}", format_bytes(available, true)),
+                    Style::default().fg(Color::Green),
                 ),
-            ]),
-            Line::from(vec![
-                Span::styled("  ─ ", Style::default().fg(Color::Gray)),
-                Span::raw("Total: "),
+                Span::raw("  Total: "),
                 Span::styled(
                     format_bytes(total, true),
-                    Style::default().fg(Color::White),
+                    Style::default().fg(Color::Cyan),
                 ),
             ]),
+            Line::from(""),
         ];
 
         let paragraph = Paragraph::new(lines).block(

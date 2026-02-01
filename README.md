@@ -48,6 +48,14 @@ mytop
 - `p`: Sort processes by PID
 - `c`: Sort processes by CPU usage
 - `m`: Sort processes by Memory usage
+UI Overview
+
+mytop features a modern, color-coded interface with:
+- **Dynamic colors**: Visual feedback based on system load (green/yellow/red)
+- **Rounded borders**: Clean, polished appearance
+- **Real-time graphs**: Historical data visualization with 60-second windows
+- **Temperature display**: Automatic detection of all thermal sensors with individual graphs and current values
+- **Responsive layout**: Adapts based on available sensors and terminal size
 
 ## Architecture
 
@@ -58,6 +66,8 @@ The project is organized into several modules:
   - `memory.rs`: Memory and swap monitoring
   - `network.rs`: Network statistics
   - `disk.rs`: Disk usage monitoring
+  - `process.rs`: Process information and sorting
+  - `temp.rs`: Temperature sensor monitoring with multi-sensor track
   - `process.rs`: Process information and sorting
 - **ui.rs**: Terminal user interface using ratatui
 - **utils.rs**: Utility functions (byte formatting, colors)

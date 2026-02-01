@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Build script for mytop
+# Build script for rtop
 
-echo "Building mytop..."
+echo "Building rtop..."
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
@@ -18,14 +18,14 @@ cargo build --release
 if [ $? -eq 0 ]; then
     echo ""
     echo "Build successful!"
-    echo "Binary location: target/release/mytop"
-    echo "Binary size: $(du -h target/release/mytop | cut -f1)"
+    echo "Binary location: target/release/rtop"
+    echo "Binary size: $(du -h target/release/rtop | cut -f1)"
     echo ""
     echo "To install system-wide, run:"
-    echo "  sudo cp target/release/mytop /usr/local/bin/"
+    echo "  sudo cp target/release/rtop /usr/local/bin/"
     echo ""
-    echo "To run mytop:"
-    echo "  ./target/release/mytop"
+    echo "To run rtop:"
+    echo "  ./target/release/rtop"
 else
     echo "Build failed!"
     exit 1

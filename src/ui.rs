@@ -84,6 +84,12 @@ impl App {
     }
 
     pub fn draw(&self, frame: &mut Frame) {
+        // Apply blue background to entire frame
+        let full_area = frame.area();
+        let background = Block::default()
+            .style(Style::default().bg(Color::Rgb(10, 20, 40)));
+        frame.render_widget(background, full_area);
+
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([

@@ -393,6 +393,21 @@ impl App {
         // Draw footer/status bar
         self.draw_footer(frame, main_chunks[2]);
 
+        // Draw different content based on current page
+        match self.current_page {
+            ViewPage::Overview => self.draw_overview_page(frame, main_chunks[1]),
+            ViewPage::Processes => self.draw_processes_page(frame, main_chunks[1]),
+            ViewPage::Network => self.draw_network_page(frame, main_chunks[1]),
+            ViewPage::Storage => self.draw_storage_page(frame, main_chunks[1]),
+        }
+
+        // Draw help overlay if activated
+        if self.show_help {
+            self.draw_help_overlay(frame, frame.area());
+        }
+    }
+
+    fn draw_overview_page(&self, frame: &mut Frame, area: Rect) {
         // Adjust layout based on temperature sensor availability
         let has_temp = self.temp_monitor.has_temperature_sensors();
         
@@ -405,7 +420,7 @@ impl App {
                     Constraint::Percentage(25),  // Temperature
                     Constraint::Percentage(25),  // Bottom section
                 ])
-                .split(main_chunks[1])
+                .split(area)
         } else {
             Layout::default()
                 .direction(Direction::Vertical)
@@ -414,7 +429,7 @@ impl App {
                     Constraint::Percentage(33),
                     Constraint::Percentage(34),
                 ])
-                .split(main_chunks[1])
+                .split(area)
         };
 
         // Top section: CPU
@@ -449,11 +464,46 @@ impl App {
         self.draw_network(frame, left_chunks[0]);
         self.draw_disk(frame, left_chunks[1]);
         self.draw_processes(frame, bottom_chunks[1]);
+    }
 
-        // Draw help overlay if activated
-        if self.show_help {
-            self.draw_help_overlay(frame, frame.area());
-        }
+    fn draw_processes_page(&self, frame: &mut Frame, area: Rect) {
+        // Full-screen process list
+        self.draw_processes(frame, area);
+    }
+
+    fn draw_network_page(&self, frame: &mut Frame, area: Rect) {
+        // Network-focused view
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(50),  // Network stats
+                Constraint::Percentage(50),  // CPU (shows network impact)
+            ])
+            .split(area);
+
+        self.draw_network(frame, chunks[0]);
+        self.draw_cpu(frame, chunks[1]);
+    }
+
+    fn draw_storage_page(&self, frame: &mut Frame, area: Rect) {
+        // Storage-focused view
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(50),  // Disk usage
+                Constraint::Percentage(50),  // Memory (storage related)
+            ])
+            .split(area);
+
+        let disk_mem_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(chunks[0]);
+
+        self.draw_disk(frame, disk_mem_chunks[0]);
+        self.draw_memory_gauges(frame, disk_mem_chunks[1]);
+
+        self.draw_memory(frame, chunks[1]);
     }
 
     fn draw_header(&self, frame: &mut Frame, area: Rect) {

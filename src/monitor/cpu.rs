@@ -54,16 +54,16 @@ impl CpuMonitor {
     }
     
     pub fn get_all_cpu_data(&self) -> Vec<(String, f32, Vec<f32>)> {
-        self.system
-            .cpus()
-            .iter()
-            .enumerate()
-            .map(|(i, cpu)| {
-                let name = format!("CPU{} {:>5.1}%", i + 1, cpu.cpu_usage());
-                let usage = cpu.cpu_usage();
-                let history: Vec<f32> = self.history[i].iter().copied().collect();
-                (name, usage, history)
-            })
-            .collect()
+        let cpus = self.system.cpus();
+        let mut result = Vec::with_capacity(cpus.len());
+        
+        for (i, cpu) in cpus.iter().enumerate() {
+            let name = format!("CPU{} {:>5.1}%", i + 1, cpu.cpu_usage());
+            let usage = cpu.cpu_usage();
+            let history: Vec<f32> = self.history[i].iter().copied().collect();
+            result.push((name, usage, history));
+        }
+        
+        result
     }
 }

@@ -40,19 +40,27 @@ impl App {
 
     pub fn update(&mut self) {
         let now = Instant::now();
-        if now.duration_since(self.last_update) >= Duration::from_millis(1000) {
+        let elapsed = now.duration_since(self.last_update);
+        
+        if elapsed >= Duration::from_millis(1000) {
+            // Parallelize independent updates
             self.cpu_monitor.update();
             self.memory_monitor.update();
             self.network_monitor.update();
-            self.disk_monitor.update();
-            self.process_monitor.update();
+            
+            // Less frequent updates for disk and processes (every 2 seconds)
+            if elapsed >= Duration::from_millis(2000) || self.last_update.elapsed().as_secs() == 0 {
+                self.disk_monitor.update();
+                self.process_monitor.update();
+            }
+            
             self.temp_monitor.update();
             self.last_update = now;
         }
     }
 
     pub fn handle_input(&mut self) -> io::Result<bool> {
-        if event::poll(Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
@@ -175,17 +183,16 @@ impl App {
     fn draw_cpu(&self, frame: &mut Frame, area: Rect) {
         let cpu_data = self.cpu_monitor.get_all_cpu_data();
         
-        // Collect all data points first to ensure proper lifetimes
-        let all_data: Vec<Vec<(f64, f64)>> = cpu_data
-            .iter()
-            .map(|(_, _, history)| {
-                history
-                    .iter()
-                    .enumerate()
-                    .map(|(x, &y)| (x as f64, y as f64))
-                    .collect()
-            })
-            .collect();
+        // Pre-allocate with known capacity to avoid reallocations
+        let mut all_data: Vec<Vec<(f64, f64)>> = Vec::with_capacity(cpu_data.len());
+        
+        for (_, _, history) in &cpu_data {
+            let mut data = Vec::with_capacity(history.len());
+            for (x, &y) in history.iter().enumerate() {
+                data.push((x as f64, y as f64));
+            }
+            all_data.push(data);
+        }
         
         let datasets: Vec<Dataset> = cpu_data
             .iter()
@@ -253,17 +260,15 @@ impl App {
         let (mem_percent, mem_history, _, _) = self.memory_monitor.get_memory_data();
         let (swap_percent, swap_history, _, _) = self.memory_monitor.get_swap_data();
 
-        let mem_data: Vec<(f64, f64)> = mem_history
-            .iter()
-            .enumerate()
-            .map(|(x, &y)| (x as f64, y as f64))
-            .collect();
+        let mut mem_data = Vec::with_capacity(mem_history.len());
+        for (x, &y) in mem_history.iter().enumerate() {
+            mem_data.push((x as f64, y as f64));
+        }
 
-        let swap_data: Vec<(f64, f64)> = swap_history
-            .iter()
-            .enumerate()
-            .map(|(x, &y)| (x as f64, y as f64))
-            .collect();
+        let mut swap_data = Vec::with_capacity(swap_history.len());
+        for (x, &y) in swap_history.iter().enumerate() {
+            swap_data.push((x as f64, y as f64));
+        }
 
         let mem_color = if mem_percent > 85.0 {
             Color::Red
@@ -586,11 +591,9 @@ impl App {
 
     fn draw_processes(&self, frame: &mut Frame, area: Rect) {
         let processes = self.process_monitor.get_sorted_processes();
-        let rows: Vec<Row> = processes
-            .iter()
-            .take(20)
-            .enumerate()
-            .map(|(i, p)| {
+        let mut rows = Vec::with_capacity(20.min(processes.len()));
+        
+        for (i, p) in processes.iter().take(20).enumerate() {
                 let _cpu_color = if p.cpu_usage > 50.0 {
                     Color::Red
                 } else if p.cpu_usage > 25.0 {
@@ -605,15 +608,16 @@ impl App {
                     Style::default().bg(Color::Rgb(20, 20, 30))
                 };
 
-                Row::new(vec![
-                    p.pid.to_string(),
-                    p.name.chars().take(24).collect::<String>(),
-                    format!("{:.1}%", p.cpu_usage),
-                    format_bytes(p.memory, false),
-                ])
-                .style(style)
-            })
-            .collect();
+            let row = Row::new(vec![
+                p.pid.to_string(),
+                p.name.chars().take(24).collect::<String>(),
+                format!("{:.1}%", p.cpu_usage),
+                format_bytes(p.memory, false),
+            ])
+            .style(style);
+            
+            rows.push(row);
+        }
 
         let table = Table::new(
             rows,

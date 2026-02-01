@@ -16,6 +16,13 @@ path = "src/main.rs"
 crossterm = "0.28"
 ratatui = "0.29"
 sysinfo = "0.32"
-tokio = { version = "1.41", features = ["full"] }
+tokio = { version = "1.41", features = ["rt", "time"], default-features = false }
 anyhow = "1.0"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

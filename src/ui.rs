@@ -22,6 +22,7 @@ pub struct App {
     network_monitor: NetworkMonitor,
     disk_monitor: DiskMonitor,
     process_monitor: ProcessMonitor,
+    temp_monitor: TempMonitor,
     last_update: Instant,
 }
 
@@ -33,6 +34,7 @@ impl App {
             network_monitor: NetworkMonitor::new(),
             disk_monitor: DiskMonitor::new(),
             process_monitor: ProcessMonitor::new(),
+            temp_monitor: TempMonitor::new(),
             last_update: Instant::now(),
         }
     }
@@ -45,6 +47,7 @@ impl App {
             self.network_monitor.update();
             self.disk_monitor.update();
             self.process_monitor.update();
+            self.temp_monitor.update();
             self.last_update = now;
         }
     }
@@ -85,14 +88,29 @@ impl App {
         // Draw header
         self.draw_header(frame, main_chunks[0]);
 
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-            ])
-            .split(main_chunks[1]);
+        // Adjust layout based on temperature sensor availability
+        let has_temp = self.temp_monitor.has_temperature_sensors();
+        
+        let chunks = if has_temp {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(25),  // CPU
+                    Constraint::Percentage(25),  // Memory
+                    Constraint::Percentage(25),  // Temperature
+                    Constraint::Percentage(25),  // Bottom section
+                ])
+                .split(main_chunks[1])
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(34),
+                ])
+                .split(main_chunks[1])
+        };
 
         // Top section: CPU
         self.draw_cpu(frame, chunks[0]);
@@ -106,11 +124,17 @@ impl App {
         self.draw_memory(frame, middle_chunks[0]);
         self.draw_memory_gauges(frame, middle_chunks[1]);
 
+        // Temperature section (if available)
+        if has_temp {
+            self.draw_temperature(frame, chunks[2]);
+        }
+
         // Bottom section: Network, Disk, and Processes
+        let bottom_idx = if has_temp { 3 } else { 2 };
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(chunks[2]);
+            .split(chunks[bottom_idx]);
 
         let left_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -640,5 +664,81 @@ impl App {
         .highlight_symbol("▶ ");
 
         frame.render_widget(table, area);
+    }
+
+    fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
+        let (avg_temp, components, history) = self.temp_monitor.get_temperature_data();
+        
+        // Prepare history data
+        let temp_data: Vec<(f64, f64)> = history
+            .iter()
+            .enumerate()
+            .map(|(x, &y)| (x as f64, y as f64))
+            .collect();
+
+        // Determine color based on temperature
+        let temp_color = if avg_temp > 80.0 {
+            Color::Red
+        } else if avg_temp > 65.0 {
+            Color::Yellow
+        } else if avg_temp > 50.0 {
+            Color::Green
+        } else {
+            Color::Cyan
+        };
+
+        // Create dataset for temperature history
+        let dataset = Dataset::default()
+            .name(format!("Avg: {:.1}°C", avg_temp))
+            .marker(symbols::Marker::Braille)
+            .graph_type(ratatui::widgets::GraphType::Line)
+            .style(Style::default().fg(temp_color).add_modifier(Modifier::BOLD))
+            .data(&temp_data);
+
+        // Determine Y-axis bounds dynamically
+        let max_temp = self.temp_monitor.get_max_temp().max(100.0);
+        let y_max = ((max_temp / 10.0).ceil() * 10.0).max(100.0) as f64;
+
+        let chart = Chart::new(vec![dataset])
+            .block(
+                Block::default()
+                    .title(vec![
+                        Span::styled("🌡 ", Style::default().fg(Color::Red)),
+                        Span::styled("Temperature ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            format!("(Max: {:.1}°C)", self.temp_monitor.get_max_temp()),
+                            Style::default().fg(Color::DarkGray)
+                        ),
+                    ])
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan))
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            )
+            .x_axis(
+                Axis::default()
+                    .title(Span::styled("← Time", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, 60.0])
+                    .labels(vec![
+                        Span::styled("60", Style::default().fg(Color::DarkGray)),
+                        Span::styled("30", Style::default().fg(Color::DarkGray)),
+                        Span::styled("0", Style::default().fg(Color::White)),
+                    ]),
+            )
+            .y_axis(
+                Axis::default()
+                    .title(Span::styled("°C", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, y_max])
+                    .labels(vec![
+                        Span::styled("0", Style::default().fg(Color::Cyan)),
+                        Span::styled(format!("{:.0}", y_max / 2.0), Style::default().fg(Color::Yellow)),
+                        Span::styled(format!("{:.0}", y_max), Style::default().fg(Color::Red)),
+                    ]),
+            )
+            .legend_position(Some(ratatui::widgets::LegendPosition::TopLeft))
+            .hidden_legend_constraints((Constraint::Ratio(1, 4), Constraint::Ratio(1, 4)));
+
+        frame.render_widget(chart, area);
     }
 }

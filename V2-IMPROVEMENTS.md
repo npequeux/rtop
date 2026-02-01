@@ -17,6 +17,18 @@
 - Enhanced axis labels with icons
 - Bold styling for high-usage cores
 
+### 🌡️ Temperature Monitor (NEW!)
+- **Auto-detection**: Only shown when temperature sensors are available
+- Real-time temperature graph with historical data
+- **Dynamic color feedback**:
+  - Cyan (< 50°C)
+  - Green (50-65°C)
+  - Yellow (65-80°C)
+  - Red (> 80°C)
+- Shows average and maximum temperatures
+- Adaptive Y-axis scaling based on max temperature
+- Elegant rounded borders matching the theme
+
 ### 💾 Memory Charts
 - Real-time color feedback based on usage
 - Better legend positioning

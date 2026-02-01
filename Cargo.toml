@@ -1,6 +1,6 @@
 [package]
 name = "rtop"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 authors = ["Nicolas Pequeux"]
 description = "System monitoring dashboard for terminal"
@@ -13,7 +13,7 @@ name = "rtop"
 path = "src/main.rs"
 
 [dependencies]
-crossterm = "0.28"
+crossterm = { version = "0.28", features = ["event-stream"] }
 ratatui = "0.29"
 sysinfo = "0.32"
 tokio = { version = "1.41", features = ["rt", "time", "sync", "macros"], default-features = false }
@@ -28,6 +28,8 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 dirs = "5.0"
 ctrlc = "3.4"
+regex = "1.10"
+battery = "0.7"
 
 [profile.release]
 opt-level = 3

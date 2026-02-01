@@ -1,4 +1,4 @@
-use sysinfo::{System, Networks};
+use sysinfo::Networks;
 use std::collections::VecDeque;
 
 const HISTORY_SIZE: usize = 61;

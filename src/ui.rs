@@ -666,48 +666,102 @@ impl App {
     }
 
     fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
-        let (avg_temp, _components, history) = self.temp_monitor.get_temperature_data();
+        let temp_data = self.temp_monitor.get_temperature_data();
         
-        // Prepare history data
-        let temp_data: Vec<(f64, f64)> = history
+        // If no temperature data available, show a message
+        if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
+            let text = vec![
+                Line::from(""),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ⚠ ", Style::default().fg(Color::Yellow)),
+                    Span::styled("No temperature sensors detected", Style::default().fg(Color::Gray)),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("    Sensors may not be available on this system"),
+                ]),
+                Line::from(vec![
+                    Span::raw("    or may require additional kernel modules"),
+                ]),
+            ];
+
+            let paragraph = Paragraph::new(text).block(
+                Block::default()
+                    .title(vec![
+                        Span::styled("🌡 ", Style::default().fg(Color::DarkGray)),
+                        Span::styled("Temperature ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
+                        Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
+                    ])
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray))
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            );
+
+            frame.render_widget(paragraph, area);
+            return;
+        }
+
+        // Split area: graph on left, list on right
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+            .split(area);
+        
+        // Prepare datasets for each temperature sensor
+        let all_data: Vec<Vec<(f64, f64)>> = temp_data
             .iter()
+            .map(|(_, _, history)| {
+                history
+                    .iter()
+                    .enumerate()
+                    .map(|(x, &y)| (x as f64, y as f64))
+                    .collect()
+            })
+            .collect();
+        
+        let datasets: Vec<Dataset> = temp_data
+            .iter()
+            .zip(all_data.iter())
             .enumerate()
-            .map(|(x, &y)| (x as f64, y as f64))
+            .map(|(_i, ((label, temp, _), data))| {
+                // Determine color based on temperature
+                let temp_color = if *temp > 80.0 {
+                    Color::Red
+                } else if *temp > 65.0 {
+                    Color::Yellow
+                } else if *temp > 50.0 {
+                    Color::Green
+                } else {
+                    Color::Cyan
+                };
+
+                // Shorten label if too long
+                let short_label = if label.len() > 20 {
+                    format!("{}.. {:.1}°C", &label[..17], temp)
+                } else {
+                    format!("{}: {:.1}°C", label, temp)
+                };
+
+                Dataset::default()
+                    .name(short_label)
+                    .marker(symbols::Marker::Braille)
+                    .graph_type(ratatui::widgets::GraphType::Line)
+                    .style(Style::default().fg(temp_color).add_modifier(Modifier::BOLD))
+                    .data(data)
+            })
             .collect();
 
-        // Determine color based on temperature
-        let temp_color = if avg_temp > 80.0 {
-            Color::Red
-        } else if avg_temp > 65.0 {
-            Color::Yellow
-        } else if avg_temp > 50.0 {
-            Color::Green
-        } else {
-            Color::Cyan
-        };
-
-        // Create dataset for temperature history
-        let dataset = Dataset::default()
-            .name(format!("Avg: {:.1}°C", avg_temp))
-            .marker(symbols::Marker::Braille)
-            .graph_type(ratatui::widgets::GraphType::Line)
-            .style(Style::default().fg(temp_color).add_modifier(Modifier::BOLD))
-            .data(&temp_data);
-
         // Determine Y-axis bounds dynamically
-        let max_temp = self.temp_monitor.get_max_temp().max(100.0);
+        let max_temp = self.temp_monitor.get_max_temp();
         let y_max = ((max_temp / 10.0).ceil() * 10.0).max(100.0) as f64;
 
-        let chart = Chart::new(vec![dataset])
+        let chart = Chart::new(datasets)
             .block(
                 Block::default()
                     .title(vec![
                         Span::styled("🌡 ", Style::default().fg(Color::Red)),
-                        Span::styled("Temperature ", Style::default().add_modifier(Modifier::BOLD)),
-                        Span::styled(
-                            format!("(Max: {:.1}°C)", self.temp_monitor.get_max_temp()),
-                            Style::default().fg(Color::DarkGray)
-                        ),
+                        Span::styled("Temperature History", Style::default().add_modifier(Modifier::BOLD)),
                     ])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan))
@@ -736,8 +790,70 @@ impl App {
                     ]),
             )
             .legend_position(Some(ratatui::widgets::LegendPosition::TopLeft))
-            .hidden_legend_constraints((Constraint::Ratio(1, 4), Constraint::Ratio(1, 4)));
+            .hidden_legend_constraints((Constraint::Ratio(1, 5), Constraint::Ratio(1, 5)));
 
-        frame.render_widget(chart, area);
+        frame.render_widget(chart, chunks[0]);
+
+        // Draw temperature list on the right
+        let mut lines = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(" Current Temperatures", Style::default().fg(Color::White).add_modifier(Modifier::BOLD).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+        ];
+
+        for (label, temp, _) in temp_data.iter() {
+            let temp_color = if *temp > 80.0 {
+                Color::Red
+            } else if *temp > 65.0 {
+                Color::Yellow
+            } else if *temp > 50.0 {
+                Color::Green
+            } else {
+                Color::Cyan
+            };
+
+            let icon = if *temp > 80.0 {
+                "🔥"
+            } else if *temp > 65.0 {
+                "🌡"
+            } else {
+                "❄"
+            };
+
+            // Truncate long labels
+            let display_label = if label.len() > 18 {
+                format!("{}...", &label[..15])
+            } else {
+                label.clone()
+            };
+
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} ", icon), Style::default().fg(temp_color)),
+                Span::styled(
+                    format!("{:.1}°C", temp),
+                    Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            lines.push(Line::from(vec![
+                Span::raw("   "),
+                Span::styled(display_label, Style::default().fg(Color::Gray)),
+            ]));
+            lines.push(Line::from(""));
+        }
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .title(vec![
+                    Span::styled("📊 ", Style::default().fg(Color::Cyan)),
+                    Span::styled("Sensors", Style::default().add_modifier(Modifier::BOLD)),
+                ])
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        );
+
+        frame.render_widget(paragraph, chunks[1]);
     }
 }

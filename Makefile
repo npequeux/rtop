@@ -1,4 +1,4 @@
-.PHONY: all build release install uninstall clean test clippy fmt run help docker
+.PHONY: all build release install uninstall clean test clippy fmt run help docker config export
 
 # Default target
 all: build
@@ -22,6 +22,12 @@ install: release
 	@echo "Installing rtop to /usr/local/bin..."
 	sudo cp target/release/rtop /usr/local/bin/rtop
 	@echo "Installation complete! Run 'rtop' to start."
+
+# Install with config
+install-with-config: install
+	@echo "Generating default configuration..."
+	rtop --generate-config
+	@echo "Config created at: ~/.config/rtop/config.toml"
 
 # Uninstall from system
 uninstall:
@@ -60,6 +66,27 @@ run-release: release
 	@echo "Running rtop (release mode)..."
 	cargo run --release
 
+# Run with help
+run-help: release
+	@echo "Showing rtop help..."
+	./target/release/rtop --help
+
+# Generate config file
+config: release
+	@echo "Generating default configuration..."
+	./target/release/rtop --generate-config
+
+# Show current config
+show-config: release
+	@echo "Current rtop configuration:"
+	./target/release/rtop show-config
+
+# Export test metrics
+export: release
+	@echo "Exporting metrics to /tmp/rtop-test.json..."
+	./target/release/rtop --export /tmp/rtop-test.json
+	@echo "Metrics exported. View with: cat /tmp/rtop-test.json | jq ."
+
 # Build Docker image
 docker:
 	@echo "Building Docker image..."
@@ -71,19 +98,44 @@ docker:
 check: fmt clippy test build
 	@echo "All checks passed!"
 
+# Performance benchmark
+bench: release
+	@echo "Running performance benchmark..."
+	@bash bench_perf.sh
+
 # Show help
 help:
-	@echo "Makefile for rtop (Rust)"
+	@echo "Makefile for rtop v2.0 (Rust)"
 	@echo ""
-	@echo "Available targets:"
-	@echo "  make build         - Build in debug mode"
-	@echo "  make release       - Build in release mode (optimized)"
-	@echo "  make install       - Install to /usr/local/bin"
-	@echo "  make uninstall     - Remove from /usr/local/bin"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make test          - Run tests"
-	@echo "  make clippy        - Run linter"
-	@echo "  make fmt           - Format code"
+	@echo "Building:"
+	@echo "  make build              - Build in debug mode"
+	@echo "  make release            - Build in release mode (optimized)"
+	@echo ""
+	@echo "Installation:"
+	@echo "  make install            - Install to /usr/local/bin"
+	@echo "  make install-with-config - Install and create config"
+	@echo "  make uninstall          - Remove from /usr/local/bin"
+	@echo ""
+	@echo "Development:"
+	@echo "  make test               - Run tests"
+	@echo "  make clippy             - Run linter"
+	@echo "  make fmt                - Format code"
+	@echo "  make check              - Run all checks"
+	@echo ""
+	@echo "Running:"
+	@echo "  make run                - Run in debug mode"
+	@echo "  make run-release        - Run in release mode"
+	@echo "  make run-help           - Show help"
+	@echo ""
+	@echo "Configuration:"
+	@echo "  make config             - Generate default config"
+	@echo "  make show-config        - Display current config"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make export             - Export test metrics"
+	@echo "  make bench              - Run performance benchmark"
+	@echo "  make docker             - Build Docker image"
+	@echo "  make clean              - Clean build artifacts"
 	@echo "  make run           - Build and run (debug)"
 	@echo "  make run-release   - Build and run (release)"
 	@echo "  make docker        - Build Docker image"

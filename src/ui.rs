@@ -12,6 +12,8 @@ use ratatui::{
 use std::io;
 use std::time::{Duration, Instant};
 
+use crate::config::Config;
+use crate::export::*;
 use crate::monitor::*;
 use crate::utils::{format_bytes, COLORS};
 
@@ -22,11 +24,17 @@ pub struct App {
     disk_monitor: DiskMonitor,
     process_monitor: ProcessMonitor,
     temp_monitor: TempMonitor,
+    system_monitor: SystemMonitor,
     last_update: Instant,
+    config: Config,
+    show_help: bool,
+    paused: bool,
+    process_filter: String,
+    color_enabled: bool,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             cpu_monitor: CpuMonitor::new(),
             memory_monitor: MemoryMonitor::new(),
@@ -34,27 +42,52 @@ impl App {
             disk_monitor: DiskMonitor::new(),
             process_monitor: ProcessMonitor::new(),
             temp_monitor: TempMonitor::new(),
+            system_monitor: SystemMonitor::new(),
             last_update: Instant::now(),
+            config,
+            show_help: false,
+            paused: false,
+            process_filter: String::new(),
+            color_enabled: true,
         }
     }
 
+    pub fn set_minimal_mode(&mut self, minimal: bool) {
+        if minimal {
+            self.config.refresh_rates.cpu = 2000;
+            self.config.refresh_rates.memory = 2000;
+            self.config.refresh_rates.disk = 5000;
+            self.config.refresh_rates.process = 5000;
+        }
+    }
+
+    pub fn set_color_mode(&mut self, enabled: bool) {
+        self.color_enabled = enabled;
+    }
+
     pub fn update(&mut self) {
+        if self.paused {
+            return;
+        }
+
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_update);
         
-        if elapsed >= Duration::from_millis(1000) {
-            // Parallelize independent updates
+        if elapsed >= self.config.cpu_refresh_duration() {
             self.cpu_monitor.update();
             self.memory_monitor.update();
             self.network_monitor.update();
+            self.temp_monitor.update();
+            self.system_monitor.update();
             
-            // Less frequent updates for disk and processes (every 2 seconds)
-            if elapsed >= Duration::from_millis(2000) || self.last_update.elapsed().as_secs() == 0 {
+            // Less frequent updates for disk and processes
+            if elapsed >= self.config.disk_refresh_duration() {
                 self.disk_monitor.update();
+            }
+            if elapsed >= self.config.process_refresh_duration() {
                 self.process_monitor.update();
             }
             
-            self.temp_monitor.update();
             self.last_update = now;
         }
     }
@@ -62,10 +95,22 @@ impl App {
     pub fn handle_input(&mut self) -> io::Result<bool> {
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
+                // Handle help overlay first
+                if self.show_help {
+                    self.show_help = false;
+                    return Ok(false);
+                }
+
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         return Ok(true)
+                    }
+                    KeyCode::Char('h') | KeyCode::F(1) => {
+                        self.show_help = !self.show_help;
+                    }
+                    KeyCode::Char(' ') => {
+                        self.paused = !self.paused;
                     }
                     KeyCode::Char('p') => {
                         self.process_monitor.set_sort_order(SortOrder::Pid);
@@ -76,11 +121,113 @@ impl App {
                     KeyCode::Char('m') => {
                         self.process_monitor.set_sort_order(SortOrder::Memory);
                     }
+                    KeyCode::Char('/') => {
+                        // Start process search mode (simplified - just toggle for now)
+                        self.process_filter.clear();
+                    }
+                    KeyCode::Backspace if !self.process_filter.is_empty() => {
+                        self.process_filter.pop();
+                    }
+                    KeyCode::Char(c) if !self.process_filter.is_empty() || c.is_alphanumeric() => {
+                        if self.process_filter.len() < 20 {
+                            self.process_filter.push(c);
+                        }
+                    }
                     _ => {}
                 }
             }
         }
         Ok(false)
+    }
+
+    pub fn collect_metrics(&self) -> Metrics {
+        let timestamp = chrono::Local::now().to_rfc3339();
+        
+        let cpu_data = self.cpu_monitor.get_all_cpu_data();
+        let cores: Vec<CoreMetric> = cpu_data
+            .iter()
+            .enumerate()
+            .map(|(i, (_, usage, _))| CoreMetric {
+                id: i,
+                usage: *usage,
+            })
+            .collect();
+        let cpu_avg = cores.iter().map(|c| c.usage).sum::<f32>() / cores.len() as f32;
+
+        let (mem_percent, _, mem_used, mem_total) = self.memory_monitor.get_memory_data();
+        let (swap_percent, _, swap_used, swap_total) = self.memory_monitor.get_swap_data();
+
+        let (_, _, rx_rate, tx_rate, total_rx, total_tx) = self.network_monitor.get_network_data();
+
+        let (disk_percent, disk_used, disk_total) = self.disk_monitor.get_disk_data();
+
+        let processes = self.process_monitor.get_sorted_processes();
+
+        let temp_data = self.temp_monitor.get_temperature_data();
+        let temperature = if !temp_data.is_empty() {
+            Some(TempMetrics {
+                sensors: temp_data
+                    .iter()
+                    .map(|(name, temp, _)| SensorMetric {
+                        name: name.clone(),
+                        temperature: *temp,
+                    })
+                    .collect(),
+                average: temp_data.iter().map(|(_, t, _)| t).sum::<f32>() / temp_data.len() as f32,
+                max: temp_data.iter().map(|(_, t, _)| *t).fold(0.0, f32::max),
+            })
+        } else {
+            None
+        };
+
+        Metrics {
+            timestamp,
+            cpu: CpuMetrics {
+                cores,
+                average: cpu_avg,
+            },
+            memory: MemoryMetrics {
+                total: mem_total,
+                used: mem_used,
+                available: mem_total - mem_used,
+                percent: mem_percent,
+                swap_total,
+                swap_used,
+                swap_percent,
+            },
+            network: NetworkMetrics {
+                received: total_rx,
+                transmitted: total_tx,
+                rx_rate: rx_rate as f64,
+                tx_rate: tx_rate as f64,
+            },
+            disk: vec![DiskMetrics {
+                name: "root".to_string(),
+                mount_point: "/".to_string(),
+                total: disk_total,
+                available: disk_total - disk_used,
+                percent: disk_percent,
+            }],
+            processes: processes
+                .iter()
+                .take(20)
+                .map(|p| ProcessMetrics {
+                    pid: p.pid,
+                    name: p.name.clone(),
+                    cpu: p.cpu_usage,
+                    memory: p.memory,
+                    memory_percent: (p.memory as f32 / mem_total as f32) * 100.0,
+                })
+                .collect(),
+            temperature,
+            system: SystemMetrics {
+                hostname: self.system_monitor.hostname(),
+                os: self.system_monitor.os_version(),
+                kernel: self.system_monitor.kernel_version(),
+                uptime: self.system_monitor.uptime(),
+                load_average: self.system_monitor.load_average(),
+            },
+        }
     }
 
     pub fn draw(&self, frame: &mut Frame) {
@@ -95,11 +242,15 @@ impl App {
             .constraints([
                 Constraint::Length(3),    // Header
                 Constraint::Min(0),       // Content
+                Constraint::Length(2),    // Footer/Status bar
             ])
             .split(frame.area());
 
         // Draw header
         self.draw_header(frame, main_chunks[0]);
+
+        // Draw footer/status bar
+        self.draw_footer(frame, main_chunks[2]);
 
         // Adjust layout based on temperature sensor availability
         let has_temp = self.temp_monitor.has_temperature_sensors();
@@ -157,6 +308,11 @@ impl App {
         self.draw_network(frame, left_chunks[0]);
         self.draw_disk(frame, left_chunks[1]);
         self.draw_processes(frame, bottom_chunks[1]);
+
+        // Draw help overlay if activated
+        if self.show_help {
+            self.draw_help_overlay(frame, frame.area());
+        }
     }
 
     fn draw_header(&self, frame: &mut Frame, area: Rect) {
@@ -865,5 +1021,184 @@ impl App {
         );
 
         frame.render_widget(paragraph, chunks[1]);
+    }
+
+    fn draw_footer(&self, frame: &mut Frame, area: Rect) {
+        let (load_1, load_5, load_15) = self.system_monitor.load_average();
+        
+        let status = if self.paused {
+            Span::styled(" ⏸ PAUSED ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD).bg(Color::Rgb(60, 60, 0)))
+        } else {
+            Span::styled(" ▶ RUNNING ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        };
+
+        let footer_text = vec![
+            Line::from(vec![
+                status,
+                Span::raw(" │ "),
+                Span::styled("Uptime: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(self.system_monitor.uptime_formatted(), Style::default().fg(Color::Cyan)),
+                Span::raw(" │ "),
+                Span::styled("Load: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:.2} {:.2} {:.2}", load_1, load_5, load_15), Style::default().fg(Color::White)),
+                Span::raw(" │ "),
+                Span::styled("Processes: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{}", self.system_monitor.total_processes()), Style::default().fg(Color::White)),
+                Span::raw(" │ Press "),
+                Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" for help"),
+            ]),
+        ];
+
+        let paragraph = Paragraph::new(footer_text)
+            .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(Color::DarkGray)))
+            .alignment(ratatui::layout::Alignment::Center);
+
+        frame.render_widget(paragraph, area);
+    }
+
+    fn draw_help_overlay(&self, frame: &mut Frame, area: Rect) {
+        // Create centered popup
+        let popup_area = Self::centered_rect(60, 70, area);
+
+        // Clear the popup area
+        let clear_block = Block::default()
+            .style(Style::default().bg(Color::Rgb(20, 30, 50)));
+        frame.render_widget(clear_block, popup_area);
+
+        let help_text = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("                   ⚡ rtop - Help ⚡", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Navigation & Control:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("    q, Esc, Ctrl+C  ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Quit application"),
+            ]),
+            Line::from(vec![
+                Span::styled("    h, F1           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Toggle this help screen"),
+            ]),
+            Line::from(vec![
+                Span::styled("    Space           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Pause/Resume updates"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Process Sorting:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("    p               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Sort by PID"),
+            ]),
+            Line::from(vec![
+                Span::styled("    c               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Sort by CPU usage"),
+            ]),
+            Line::from(vec![
+                Span::styled("    m               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Sort by Memory usage"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Command Line Options:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("    "),
+                Span::styled("rtop --help            ", Style::default().fg(Color::Cyan)),
+                Span::raw("→ Show all options"),
+            ]),
+            Line::from(vec![
+                Span::raw("    "),
+                Span::styled("rtop --export out.json ", Style::default().fg(Color::Cyan)),
+                Span::raw("→ Export metrics"),
+            ]),
+            Line::from(vec![
+                Span::raw("    "),
+                Span::styled("rtop --minimal         ", Style::default().fg(Color::Cyan)),
+                Span::raw("→ Minimal mode"),
+            ]),
+            Line::from(vec![
+                Span::raw("    "),
+                Span::styled("rtop --generate-config ", Style::default().fg(Color::Cyan)),
+                Span::raw("→ Create config"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Features:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("    • Real-time CPU, Memory, Network, Disk monitoring"),
+            ]),
+            Line::from(vec![
+                Span::raw("    • Temperature sensors (auto-detected)"),
+            ]),
+            Line::from(vec![
+                Span::raw("    • Process management with sorting"),
+            ]),
+            Line::from(vec![
+                Span::raw("    • System info: uptime, load average"),
+            ]),
+            Line::from(vec![
+                Span::raw("    • Export to JSON/CSV formats"),
+            ]),
+            Line::from(vec![
+                Span::raw("    • Configurable refresh rates and thresholds"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  Config: "),
+                Span::styled("~/.config/rtop/config.toml", Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Press any key to close this help", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+            ]),
+            Line::from(""),
+        ];
+
+        let help_paragraph = Paragraph::new(help_text)
+            .block(
+                Block::default()
+                    .title(vec![
+                        Span::styled(" ❓ Help ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    ])
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Yellow))
+                    .border_type(ratatui::widgets::BorderType::Thick)
+                    .style(Style::default().bg(Color::Rgb(20, 30, 50))),
+            )
+            .alignment(ratatui::layout::Alignment::Left);
+
+        frame.render_widget(help_paragraph, popup_area);
+    }
+
+    // Helper function to create centered rectangle
+    fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+        let popup_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ])
+            .split(r);
+
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ])
+            .split(popup_layout[1])[1]
     }
 }

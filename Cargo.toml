@@ -1,6 +1,6 @@
 [package]
 name = "rtop"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["Nicolas Pequeux"]
 description = "System monitoring dashboard for terminal"
@@ -16,9 +16,18 @@ path = "src/main.rs"
 crossterm = "0.28"
 ratatui = "0.29"
 sysinfo = "0.32"
-tokio = { version = "1.41", features = ["rt", "time"], default-features = false }
+tokio = { version = "1.41", features = ["rt", "time", "sync", "macros"], default-features = false }
 anyhow = "1.0"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dirs = "5.0"
+ctrlc = "3.4"
 
 [profile.release]
 opt-level = 3

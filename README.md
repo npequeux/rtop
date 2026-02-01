@@ -6,6 +6,7 @@ System monitoring dashboard for terminal written in Rust.
 
 - **Real-time CPU monitoring**: Track CPU usage for all cores with historical graphs
 - **Memory & Swap monitoring**: Visual gauges and historical charts
+- **Temperature monitoring**: View all system temperature sensors with individual tracking and historical graphs (when available)
 - **Network statistics**: Real-time network transfer rates and totals
 - **Disk usage**: Monitor disk space usage
 - **Process management**: View and sort running processes by PID, CPU, or Memory

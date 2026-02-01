@@ -8,13 +8,23 @@ Advanced system monitoring dashboard for terminal written in Rust.
 - **Real-time CPU monitoring**: Track CPU usage for all cores with historical graphs
 - **Memory & Swap monitoring**: Visual gauges and historical charts with color-coded warnings
 - **Temperature monitoring**: Auto-detect and display all system temperature sensors (when available)
-- **Network statistics**: Real-time transfer rates with activity indicators
+- **Network statistics**: Real-time transfer rates with per-interface monitoring
 - **Disk usage**: Visual progress bars with usage alerts
-- **Process management**: View, sort, and filter running processes by PID, CPU, or Memory
+- **Battery monitoring**: Display battery percentage, charging status, and time remaining
+- **Disk I/O**: Monitor read/write bytes per second for all disks
+- **Process management**: View, sort, filter, and kill processes with mouse support
 - **System information**: Hostname, OS, kernel version, uptime, and load averages
 
+### Interactive Features (v2.1)
+- **Mouse Support**: Scroll process list with mouse wheel, click to select processes
+- **Multi-page Navigation**: Switch between Overview, Processes, Network, and Storage pages with F2-F5
+- **Process Scrolling**: Navigate with ↑↓ arrows, PageUp/PageDown, Home/End keys
+- **Process Kill**: Press `k` to kill selected process (with confirmation dialog)
+- **Regex Filtering**: Press `/` to filter processes by regex pattern
+- **Visual Feedback**: Selected process highlighting, scroll indicators, page navigation hints
+
 ### Advanced Features
-- **Help overlay**: Press `h` or `F1` for interactive help screen
+- **Help overlay**: Press `h` or `F1` for interactive help screen with all shortcuts
 - **Pause/Resume**: Space bar to freeze display updates
 - **Configurable thresholds**: Customize warning and critical levels
 - **Data export**: Export metrics to JSON or CSV formats
@@ -83,12 +93,25 @@ rtop export -o data.json -f json     # Export metrics to file
 #### Navigation & Control
 - `q`, `Esc`, or `Ctrl+C`: Quit the application
 - `h` or `F1`: Toggle help screen
+- `F2` - `F5`: Switch pages (Overview / Processes / Network / Storage)
 - `Space`: Pause/Resume updates
+- `r`: Force refresh all monitors
+
+#### Process Management
+- `↑` `↓`: Navigate up/down in process list
+- `PgUp` / `PgDn`: Scroll page up/down (10 processes)
+- `Home` / `End`: Jump to first/last process
+- `k`: Kill selected process (with confirmation)
+- `/`: Enter filter mode (type regex pattern)
+- **Mouse**: Scroll with wheel, click to select
 
 #### Process Sorting
 - `p`: Sort processes by PID
 - `c`: Sort processes by CPU usage
 - `m`: Sort processes by Memory usage
+
+#### Data Export
+- `e`: Export current metrics to configured file
 
 ## Configuration
 

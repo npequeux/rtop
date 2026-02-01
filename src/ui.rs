@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -9,6 +9,7 @@ use ratatui::{
     },
     Frame,
 };
+use regex::Regex;
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -16,6 +17,14 @@ use crate::config::Config;
 use crate::export::*;
 use crate::monitor::*;
 use crate::utils::{format_bytes, COLORS};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ViewPage {
+    Overview,
+    Processes,
+    Network,
+    Storage,
+}
 
 pub struct App {
     cpu_monitor: CpuMonitor,
@@ -25,12 +34,20 @@ pub struct App {
     process_monitor: ProcessMonitor,
     temp_monitor: TempMonitor,
     system_monitor: SystemMonitor,
+    battery_monitor: BatteryMonitor,
+    diskio_monitor: DiskIOMonitor,
     last_update: Instant,
     config: Config,
     show_help: bool,
     paused: bool,
     process_filter: String,
+    process_filter_regex: Option<Regex>,
     color_enabled: bool,
+    current_page: ViewPage,
+    process_scroll: usize,
+    process_selected: Option<usize>,
+    show_kill_confirm: bool,
+    mouse_enabled: bool,
 }
 
 impl App {
@@ -43,12 +60,20 @@ impl App {
             process_monitor: ProcessMonitor::new(),
             temp_monitor: TempMonitor::new(),
             system_monitor: SystemMonitor::new(),
+            battery_monitor: BatteryMonitor::new(),
+            diskio_monitor: DiskIOMonitor::new(),
             last_update: Instant::now(),
             config,
             show_help: false,
             paused: false,
             process_filter: String::new(),
+            process_filter_regex: None,
             color_enabled: true,
+            current_page: ViewPage::Overview,
+            process_scroll: 0,
+            process_selected: None,
+            show_kill_confirm: false,
+            mouse_enabled: true,
         }
     }
 
@@ -79,6 +104,8 @@ impl App {
             self.network_monitor.update();
             self.temp_monitor.update();
             self.system_monitor.update();
+            self.battery_monitor.update();
+            self.diskio_monitor.update();
             
             // Less frequent updates for disk and processes
             if elapsed >= self.config.disk_refresh_duration() {
@@ -94,50 +121,163 @@ impl App {
 
     pub fn handle_input(&mut self) -> io::Result<bool> {
         if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                // Handle help overlay first
-                if self.show_help {
-                    self.show_help = false;
-                    return Ok(false);
-                }
-
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
-                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        return Ok(true)
-                    }
-                    KeyCode::Char('h') | KeyCode::F(1) => {
-                        self.show_help = !self.show_help;
-                    }
-                    KeyCode::Char(' ') => {
-                        self.paused = !self.paused;
-                    }
-                    KeyCode::Char('p') => {
-                        self.process_monitor.set_sort_order(SortOrder::Pid);
-                    }
-                    KeyCode::Char('c') => {
-                        self.process_monitor.set_sort_order(SortOrder::Cpu);
-                    }
-                    KeyCode::Char('m') => {
-                        self.process_monitor.set_sort_order(SortOrder::Memory);
-                    }
-                    KeyCode::Char('/') => {
-                        // Start process search mode (simplified - just toggle for now)
-                        self.process_filter.clear();
-                    }
-                    KeyCode::Backspace if !self.process_filter.is_empty() => {
-                        self.process_filter.pop();
-                    }
-                    KeyCode::Char(c) if !self.process_filter.is_empty() || c.is_alphanumeric() => {
-                        if self.process_filter.len() < 20 {
-                            self.process_filter.push(c);
+            match event::read()? {
+                Event::Key(key) => {
+                    // Handle kill confirmation first
+                    if self.show_kill_confirm {
+                        match key.code {
+                            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                                self.kill_selected_process();
+                                self.show_kill_confirm = false;
+                            }
+                            _ => {
+                                self.show_kill_confirm = false;
+                            }
                         }
+                        return Ok(false);
                     }
-                    _ => {}
+
+                    // Handle help overlay
+                    if self.show_help {
+                        self.show_help = false;
+                        return Ok(false);
+                    }
+
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
+                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            return Ok(true)
+                        }
+                        KeyCode::Char('h') | KeyCode::F(1) => {
+                            self.show_help = !self.show_help;
+                        }
+                        KeyCode::Char(' ') => {
+                            self.paused = !self.paused;
+                        }
+                        KeyCode::Char('p') => {
+                            self.process_monitor.set_sort_order(SortOrder::Pid);
+                        }
+                        KeyCode::Char('c') => {
+                            self.process_monitor.set_sort_order(SortOrder::Cpu);
+                        }
+                        KeyCode::Char('m') => {
+                            self.process_monitor.set_sort_order(SortOrder::Memory);
+                        }
+                        KeyCode::Char('k') if self.process_selected.is_some() => {
+                            self.show_kill_confirm = true;
+                        }
+                        KeyCode::Char('/') => {
+                            self.process_filter.clear();
+                            self.process_filter_regex = None;
+                        }
+                        KeyCode::Backspace if !self.process_filter.is_empty() => {
+                            self.process_filter.pop();
+                            self.update_filter_regex();
+                        }
+                        KeyCode::Char(c) if c.is_alphanumeric() || c == '-' || c == '_' => {
+                            if self.process_filter.len() < 30 {
+                                self.process_filter.push(c);
+                                self.update_filter_regex();
+                            }
+                        }
+                        // Page navigation
+                        KeyCode::F(2) => self.current_page = ViewPage::Overview,
+                        KeyCode::F(3) => self.current_page = ViewPage::Processes,
+                        KeyCode::F(4) => self.current_page = ViewPage::Network,
+                        KeyCode::F(5) => self.current_page = ViewPage::Storage,
+                        // Scroll process list
+                        KeyCode::Up => {
+                            if self.process_scroll > 0 {
+                                self.process_scroll -= 1;
+                            }
+                        }
+                        KeyCode::Down => {
+                            let max_processes = self.process_monitor.get_sorted_processes().len();
+                            if self.process_scroll < max_processes.saturating_sub(20) {
+                                self.process_scroll += 1;
+                            }
+                        }
+                        KeyCode::PageUp => {
+                            self.process_scroll = self.process_scroll.saturating_sub(10);
+                        }
+                        KeyCode::PageDown => {
+                            let max_processes = self.process_monitor.get_sorted_processes().len();
+                            self.process_scroll = (self.process_scroll + 10)
+                                .min(max_processes.saturating_sub(20));
+                        }
+                        KeyCode::Home => {
+                            self.process_scroll = 0;
+                        }
+                        KeyCode::End => {
+                            let max_processes = self.process_monitor.get_sorted_processes().len();
+                            self.process_scroll = max_processes.saturating_sub(20);
+                        }
+                        KeyCode::Enter => {
+                            if self.process_scroll < self.process_monitor.get_sorted_processes().len() {
+                                self.process_selected = Some(self.process_scroll);
+                            }
+                        }
+                        _ => {}
+                    }
                 }
+                Event::Mouse(mouse) if self.mouse_enabled => {
+                    self.handle_mouse(mouse);
+                }
+                _ => {}
             }
         }
         Ok(false)
+    }
+
+    fn handle_mouse(&mut self, mouse: MouseEvent) {
+        match mouse.kind {
+            MouseEventKind::ScrollUp => {
+                if self.process_scroll > 0 {
+                    self.process_scroll -= 1;
+                }
+            }
+            MouseEventKind::ScrollDown => {
+                let max_processes = self.process_monitor.get_sorted_processes().len();
+                if self.process_scroll < max_processes.saturating_sub(20) {
+                    self.process_scroll += 1;
+                }
+            }
+            MouseEventKind::Down(MouseButton::Left) => {
+                // Could add click to select process
+                let row = mouse.row as usize;
+                if row > 3 && row < 24 {
+                    let index = row - 4 + self.process_scroll;
+                    if index < self.process_monitor.get_sorted_processes().len() {
+                        self.process_selected = Some(index);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn update_filter_regex(&mut self) {
+        if self.process_filter.is_empty() {
+            self.process_filter_regex = None;
+        } else {
+            self.process_filter_regex = Regex::new(&self.process_filter).ok();
+        }
+    }
+
+    fn kill_selected_process(&mut self) {
+        if let Some(index) = self.process_selected {
+            let processes = self.process_monitor.get_sorted_processes();
+            if let Some(process) = processes.get(index) {
+                #[cfg(unix)]
+                {
+                    use std::process::Command;
+                    let _ = Command::new("kill")
+                        .arg(format!("{}", process.pid))
+                        .output();
+                }
+                self.process_selected = None;
+            }
+        }
     }
 
     pub fn collect_metrics(&self) -> Metrics {
@@ -316,18 +456,29 @@ impl App {
     }
 
     fn draw_header(&self, frame: &mut Frame, area: Rect) {
+        let page_indicator = match self.current_page {
+            ViewPage::Overview => "Overview",
+            ViewPage::Processes => "Processes",
+            ViewPage::Network => "Network",
+            ViewPage::Storage => "Storage",
+        };
+
         let title = vec![
             Line::from(vec![
                 Span::styled(" ▓▓ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Span::styled("rtop", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled(" v2.0 ", Style::default().fg(Color::DarkGray)),
+                Span::styled(" v2.1 ", Style::default().fg(Color::DarkGray)),
                 Span::raw("  │  "),
                 Span::styled("◆", Style::default().fg(Color::Green)),
-                Span::raw(" System Monitor  "),
+                Span::raw(" "),
+                Span::styled(page_indicator, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled("│", Style::default().fg(Color::DarkGray)),
+                Span::raw("  F2-F5: Pages  "),
                 Span::styled("│", Style::default().fg(Color::DarkGray)),
                 Span::raw("  Press "),
-                Span::styled("q", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(" to quit"),
+                Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" for help"),
             ]),
         ];
 
@@ -752,27 +903,46 @@ impl App {
     }
 
     fn draw_processes(&self, frame: &mut Frame, area: Rect) {
-        let processes = self.process_monitor.get_sorted_processes();
-        let mut rows = Vec::with_capacity(20.min(processes.len()));
+        let mut processes = self.process_monitor.get_sorted_processes();
         
-        for (i, p) in processes.iter().take(20).enumerate() {
-                let _cpu_color = if p.cpu_usage > 50.0 {
-                    Color::Red
-                } else if p.cpu_usage > 25.0 {
-                    Color::Yellow
-                } else {
-                    Color::Green
-                };
+        // Apply filter if active
+        if let Some(ref regex) = self.process_filter_regex {
+            processes = processes
+                .into_iter()
+                .filter(|p| regex.is_match(&p.name))
+                .collect();
+        }
 
-                let style = if i % 2 == 0 {
-                    Style::default()
-                } else {
-                    Style::default().bg(Color::Rgb(20, 20, 30))
-                };
+        let total_processes = processes.len();
+        let visible_count = (area.height as usize).saturating_sub(3).min(20);
+        
+        let end_index = (self.process_scroll + visible_count).min(total_processes);
+        let processes_slice = &processes[self.process_scroll..end_index];
+        
+        let mut rows = Vec::with_capacity(processes_slice.len());
+        
+        for (i, p) in processes_slice.iter().enumerate() {
+            let _cpu_color = if p.cpu_usage > 50.0 {
+                Color::Red
+            } else if p.cpu_usage > 25.0 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+
+            let is_selected = Some(self.process_scroll + i) == self.process_selected;
+            let style = if is_selected {
+                Style::default().bg(Color::Rgb(50, 50, 80)).fg(Color::White)
+            } else if i % 2 == 0 {
+                Style::default()
+            } else {
+                Style::default().bg(Color::Rgb(20, 20, 30))
+            };
 
             let row = Row::new(vec![
+                if is_selected { "▶".to_string() } else { " ".to_string() },
                 p.pid.to_string(),
-                p.name.chars().take(24).collect::<String>(),
+                p.name.chars().take(20).collect::<String>(),
                 format!("{:.1}%", p.cpu_usage),
                 format_bytes(p.memory, false),
             ])
@@ -781,17 +951,49 @@ impl App {
             rows.push(row);
         }
 
+        let scroll_info = if total_processes > visible_count {
+            format!(" [{}-{}/{}] ", 
+                self.process_scroll + 1, 
+                end_index, 
+                total_processes)
+        } else {
+            format!(" [{}] ", total_processes)
+        };
+
+        let title = vec![
+            Span::styled("⚙ ", Style::default().fg(Color::Yellow)),
+            Span::styled("Processes ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(scroll_info, Style::default().fg(Color::DarkGray)),
+            Span::styled("[", Style::default().fg(Color::DarkGray)),
+            Span::styled("p", Style::default().fg(Color::Yellow)),
+            Span::styled("]", Style::default().fg(Color::DarkGray)),
+            Span::raw("PID "),
+            Span::styled("[", Style::default().fg(Color::DarkGray)),
+            Span::styled("c", Style::default().fg(Color::Yellow)),
+            Span::styled("]", Style::default().fg(Color::DarkGray)),
+            Span::raw("CPU "),
+            Span::styled("[", Style::default().fg(Color::DarkGray)),
+            Span::styled("m", Style::default().fg(Color::Yellow)),
+            Span::styled("]", Style::default().fg(Color::DarkGray)),
+            Span::raw("Mem "),
+            Span::styled("[", Style::default().fg(Color::DarkGray)),
+            Span::styled("k", Style::default().fg(Color::Yellow)),
+            Span::styled("]", Style::default().fg(Color::DarkGray)),
+            Span::raw("Kill"),
+        ];
+
         let table = Table::new(
             rows,
             [
+                Constraint::Length(2),
                 Constraint::Length(7),
-                Constraint::Length(24),
+                Constraint::Length(20),
                 Constraint::Length(7),
                 Constraint::Length(10),
             ],
         )
         .header(
-            Row::new(vec!["PID", "Process", "CPU", "Memory"])
+            Row::new(vec!["", "PID", "Process", "CPU", "Memory"])
                 .style(
                     Style::default()
                         .fg(Color::Cyan)
@@ -801,22 +1003,7 @@ impl App {
         )
         .block(
             Block::default()
-                .title(vec![
-                    Span::styled("⚙ ", Style::default().fg(Color::Yellow)),
-                    Span::styled("Processes ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::styled("[", Style::default().fg(Color::DarkGray)),
-                    Span::styled("p", Style::default().fg(Color::Yellow)),
-                    Span::styled("]", Style::default().fg(Color::DarkGray)),
-                    Span::raw("PID "),
-                    Span::styled("[", Style::default().fg(Color::DarkGray)),
-                    Span::styled("c", Style::default().fg(Color::Yellow)),
-                    Span::styled("]", Style::default().fg(Color::DarkGray)),
-                    Span::raw("CPU "),
-                    Span::styled("[", Style::default().fg(Color::DarkGray)),
-                    Span::styled("m", Style::default().fg(Color::Yellow)),
-                    Span::styled("]", Style::default().fg(Color::DarkGray)),
-                    Span::raw("Mem"),
-                ])
+                .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
                 .border_type(ratatui::widgets::BorderType::Rounded),
@@ -825,10 +1012,58 @@ impl App {
             Style::default()
                 .bg(Color::Rgb(50, 50, 80))
                 .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol("▶ ");
+        );
 
         frame.render_widget(table, area);
+
+        // Show kill confirmation dialog
+        if self.show_kill_confirm {
+            self.draw_kill_confirm(frame, area);
+        }
+    }
+
+    fn draw_kill_confirm(&self, frame: &mut Frame, area: Rect) {
+        let popup_area = Self::centered_rect(40, 20, area);
+
+        if let Some(index) = self.process_selected {
+            let processes = self.process_monitor.get_sorted_processes();
+            if let Some(process) = processes.get(index) {
+                let text = vec![
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::styled("Kill process?", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                    ]),
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::raw("PID: "),
+                        Span::styled(format!("{}", process.pid), Style::default().fg(Color::Yellow)),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("Name: "),
+                        Span::styled(&process.name, Style::default().fg(Color::Cyan)),
+                    ]),
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::styled("Press ", Style::default().fg(Color::DarkGray)),
+                        Span::styled("Y", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                        Span::styled(" to confirm, any other key to cancel", Style::default().fg(Color::DarkGray)),
+                    ]),
+                ];
+
+                let paragraph = Paragraph::new(text)
+                    .block(
+                        Block::default()
+                            .title(" ⚠ Confirm ")
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Red))
+                            .border_type(ratatui::widgets::BorderType::Thick)
+                            .style(Style::default().bg(Color::Rgb(30, 20, 20))),
+                    )
+                    .alignment(ratatui::layout::Alignment::Center);
+
+                frame.render_widget(paragraph, popup_area);
+            }
+        }
     }
 
     fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
@@ -1032,23 +1267,50 @@ impl App {
             Span::styled(" ▶ RUNNING ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
         };
 
-        let footer_text = vec![
-            Line::from(vec![
-                status,
-                Span::raw(" │ "),
-                Span::styled("Uptime: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(self.system_monitor.uptime_formatted(), Style::default().fg(Color::Cyan)),
-                Span::raw(" │ "),
-                Span::styled("Load: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(format!("{:.2} {:.2} {:.2}", load_1, load_5, load_15), Style::default().fg(Color::White)),
-                Span::raw(" │ "),
-                Span::styled("Processes: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(format!("{}", self.system_monitor.total_processes()), Style::default().fg(Color::White)),
-                Span::raw(" │ Press "),
-                Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(" for help"),
-            ]),
+        let mut footer_spans = vec![
+            status,
+            Span::raw(" │ "),
+            Span::styled("Uptime: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(self.system_monitor.uptime_formatted(), Style::default().fg(Color::Cyan)),
+            Span::raw(" │ "),
+            Span::styled("Load: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:.2} {:.2} {:.2}", load_1, load_5, load_15), Style::default().fg(Color::White)),
         ];
+
+        // Add battery info if available
+        if let Some(battery) = self.battery_monitor.get_battery_info() {
+            let battery_icon = if battery.is_charging { "🔌" } else { "🔋" };
+            let battery_color = if battery.percentage > 50.0 {
+                Color::Green
+            } else if battery.percentage > 20.0 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+
+            footer_spans.extend(vec![
+                Span::raw(" │ "),
+                Span::styled(battery_icon, Style::default()),
+                Span::raw(" "),
+                Span::styled(format!("{:.0}%", battery.percentage), Style::default().fg(battery_color)),
+            ]);
+        }
+
+        footer_spans.extend(vec![
+            Span::raw(" │ "),
+            Span::styled("Processes: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", self.system_monitor.total_processes()), Style::default().fg(Color::White)),
+        ]);
+
+        if !self.process_filter.is_empty() {
+            footer_spans.extend(vec![
+                Span::raw(" │ "),
+                Span::styled("Filter: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(&self.process_filter, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            ]);
+        }
+
+        let footer_text = vec![Line::from(footer_spans)];
 
         let paragraph = Paragraph::new(footer_text)
             .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(Color::DarkGray)))
@@ -1085,8 +1347,37 @@ impl App {
                 Span::raw("→ Toggle this help screen"),
             ]),
             Line::from(vec![
+                Span::styled("    F2-F5           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Switch pages (Overview/Process/Network/Storage)"),
+            ]),
+            Line::from(vec![
                 Span::styled("    Space           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::raw("→ Pause/Resume updates"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Process List:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("    ↑↓, PgUp/Dn     ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Navigate/scroll process list"),
+            ]),
+            Line::from(vec![
+                Span::styled("    Home/End        ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Jump to first/last process"),
+            ]),
+            Line::from(vec![
+                Span::styled("    Mouse wheel     ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Scroll processes"),
+            ]),
+            Line::from(vec![
+                Span::styled("    k               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Kill selected process (with confirm)"),
+            ]),
+            Line::from(vec![
+                Span::styled("    /               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("→ Filter processes (regex)"),
             ]),
             Line::from(""),
             Line::from(vec![
@@ -1107,42 +1398,17 @@ impl App {
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("  Command Line Options:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled("rtop --help            ", Style::default().fg(Color::Cyan)),
-                Span::raw("→ Show all options"),
-            ]),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled("rtop --export out.json ", Style::default().fg(Color::Cyan)),
-                Span::raw("→ Export metrics"),
-            ]),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled("rtop --minimal         ", Style::default().fg(Color::Cyan)),
-                Span::raw("→ Minimal mode"),
-            ]),
-            Line::from(vec![
-                Span::raw("    "),
-                Span::styled("rtop --generate-config ", Style::default().fg(Color::Cyan)),
-                Span::raw("→ Create config"),
-            ]),
-            Line::from(""),
-            Line::from(vec![
                 Span::styled("  Features:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::raw("    • Real-time CPU, Memory, Network, Disk monitoring"),
+                Span::raw("    • Real-time CPU, Memory, Network, Disk, Battery"),
             ]),
             Line::from(vec![
-                Span::raw("    • Temperature sensors (auto-detected)"),
+                Span::raw("    • Temperature & Disk I/O monitoring"),
             ]),
             Line::from(vec![
-                Span::raw("    • Process management with sorting"),
+                Span::raw("    • Process management with mouse support"),
             ]),
             Line::from(vec![
                 Span::raw("    • System info: uptime, load average"),
@@ -1151,7 +1417,7 @@ impl App {
                 Span::raw("    • Export to JSON/CSV formats"),
             ]),
             Line::from(vec![
-                Span::raw("    • Configurable refresh rates and thresholds"),
+                Span::raw("    • Regex filtering and multi-page navigation"),
             ]),
             Line::from(""),
             Line::from(vec![

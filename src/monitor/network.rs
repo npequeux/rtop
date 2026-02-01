@@ -1,5 +1,7 @@
 use sysinfo::Networks;
 use std::collections::VecDeque;
+use std::process::Command;
+use std::time::{Duration, Instant};
 
 const HISTORY_SIZE: usize = 61;
 
@@ -11,6 +13,9 @@ pub struct NetworkMonitor {
     total_tx: u64,
     last_rx: u64,
     last_tx: u64,
+    ping_latency: Option<f32>,
+    last_ping_check: Instant,
+    active_interface: String,
 }
 
 impl NetworkMonitor {
@@ -30,6 +35,9 @@ impl NetworkMonitor {
             total_tx,
             last_rx: total_rx,
             last_tx: total_tx,
+            ping_latency: None,
+            last_ping_check: Instant::now(),
+            active_interface: String::from("eth0"),
         }
     }
     
@@ -63,5 +71,69 @@ impl NetworkMonitor {
         let tx_sec = *self.tx_history.back().unwrap_or(&0);
         
         (rx_history, tx_history, rx_sec, tx_sec, self.total_rx, self.total_tx)
+    }
+
+    pub fn get_ping_latency(&self) -> Option<f32> {
+        self.ping_latency
+    }
+
+    pub fn get_active_interface(&self) -> &str {
+        // Get the first active interface
+        if let Some((name, data)) = self.networks.iter()
+            .find(|(_, data)| data.total_received() > 0 || data.total_transmitted() > 0) {
+            name
+        } else {
+            &self.active_interface
+        }
+    }
+
+    pub fn update_ping(&mut self) {
+        // Only check ping every 3 seconds to avoid overhead
+        if self.last_ping_check.elapsed() < Duration::from_secs(3) {
+            return;
+        }
+
+        self.last_ping_check = Instant::now();
+
+        // Try ping to common DNS servers (Google, Cloudflare)
+        let hosts = ["8.8.8.8", "1.1.1.1"];
+        
+        for host in &hosts {
+            if let Some(latency) = self.ping_host(host) {
+                self.ping_latency = Some(latency);
+                return;
+            }
+        }
+        
+        self.ping_latency = None;
+    }
+
+    fn ping_host(&self, host: &str) -> Option<f32> {
+        // Use ping command with 1 packet, 1 second timeout
+        let output = Command::new("ping")
+            .args(&["-c", "1", "-W", "1", host])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        
+        // Parse ping output for latency (works on Linux/macOS)
+        // Example: "time=14.2 ms"
+        for line in stdout.lines() {
+            if let Some(time_pos) = line.find("time=") {
+                let time_str = &line[time_pos + 5..];
+                if let Some(space_pos) = time_str.find(' ') {
+                    if let Ok(latency) = time_str[..space_pos].parse::<f32>() {
+                        return Some(latency);
+                    }
+                }
+            }
+        }
+
+        None
     }
 }

@@ -102,6 +102,7 @@ impl App {
             self.cpu_monitor.update();
             self.memory_monitor.update();
             self.network_monitor.update();
+            self.network_monitor.update_ping();
             self.temp_monitor.update();
             self.system_monitor.update();
             self.battery_monitor.update();
@@ -759,7 +760,19 @@ impl App {
         let rx_total = format_bytes(total_rx, false);
         let tx_total = format_bytes(total_tx, false);
 
-        let text = vec![
+        // Get ping latency and interface name
+        let ping_latency = self.network_monitor.get_ping_latency();
+        let interface = self.network_monitor.get_active_interface();
+
+        // Calculate max speed from current rates (keep track of peaks)
+        let max_rate = rx_sec.max(tx_sec);
+        let max_rate_str = if max_rate > 0 {
+            format_bytes(max_rate, false)
+        } else {
+            "N/A".to_string()
+        };
+
+        let mut text = vec![
             Line::from(""),
             Line::from(vec![
                 Span::styled("  ▼ Download ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
@@ -785,8 +798,35 @@ impl App {
                 Span::styled(format!("{:>12}", tx_total), Style::default().fg(Color::Cyan)),
                 Span::styled(" total", Style::default().fg(Color::DarkGray)),
             ]),
-            Line::from(""),
         ];
+
+        // Add separator and additional info
+        text.push(Line::from(""));
+        
+        // Interface and ping info
+        let mut info_line = vec![
+            Span::styled("  ◆ ", Style::default().fg(Color::Yellow)),
+            Span::styled(interface, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::raw("  │  "),
+        ];
+
+        if let Some(latency) = ping_latency {
+            let ping_color = if latency < 50.0 {
+                Color::Green
+            } else if latency < 100.0 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+            info_line.push(Span::styled("⚡ ", Style::default().fg(ping_color)));
+            info_line.push(Span::styled(format!("{:.1} ms", latency), Style::default().fg(ping_color).add_modifier(Modifier::BOLD)));
+        } else {
+            info_line.push(Span::styled("⚡ ", Style::default().fg(Color::DarkGray)));
+            info_line.push(Span::styled("--- ms", Style::default().fg(Color::DarkGray)));
+        }
+
+        text.push(Line::from(info_line));
+        text.push(Line::from(""));
 
         let paragraph = Paragraph::new(text).block(
             Block::default()

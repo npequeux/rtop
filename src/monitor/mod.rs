@@ -7,13 +7,15 @@ pub mod temp;
 pub mod system;
 pub mod battery;
 pub mod diskio;
+pub mod gpu;
 
 pub use cpu::CpuMonitor;
 pub use memory::MemoryMonitor;
 pub use network::NetworkMonitor;
 pub use disk::DiskMonitor;
-pub use process::{ProcessMonitor, SortOrder};
+pub use process::{ProcessMonitor, SortOrder, ProcessSignal, ProcessInfo};
 pub use temp::TempMonitor;
 pub use system::SystemMonitor;
 pub use battery::BatteryMonitor;
 pub use diskio::DiskIOMonitor;
+pub use gpu::{GpuMonitor, GpuInfo, GpuVendor};

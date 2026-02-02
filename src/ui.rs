@@ -17,6 +17,8 @@ use crate::config::Config;
 use crate::export::*;
 use crate::monitor::*;
 use crate::utils::{format_bytes, COLORS};
+use crate::graphics::{GraphRenderer, GraphSymbol, MeterRenderer, BoxDrawer};
+use crate::theme::{ThemeManager, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ViewPage {
@@ -36,6 +38,8 @@ pub struct App {
     system_monitor: SystemMonitor,
     battery_monitor: BatteryMonitor,
     diskio_monitor: DiskIOMonitor,
+    gpu_monitor: GpuMonitor,
+    theme_manager: ThemeManager,
     last_update: Instant,
     config: Config,
     show_help: bool,
@@ -47,7 +51,10 @@ pub struct App {
     process_scroll: usize,
     process_selected: Option<usize>,
     show_kill_confirm: bool,
+    show_signal_menu: bool,
     mouse_enabled: bool,
+    graph_symbol: GraphSymbol,
+    rounded_corners: bool,
 }
 
 impl App {
@@ -62,6 +69,8 @@ impl App {
             system_monitor: SystemMonitor::new(),
             battery_monitor: BatteryMonitor::new(),
             diskio_monitor: DiskIOMonitor::new(),
+            gpu_monitor: GpuMonitor::new(),
+            theme_manager: ThemeManager::new(),
             last_update: Instant::now(),
             config,
             show_help: false,
@@ -73,7 +82,10 @@ impl App {
             process_scroll: 0,
             process_selected: None,
             show_kill_confirm: false,
+            show_signal_menu: false,
             mouse_enabled: true,
+            graph_symbol: GraphSymbol::Braille,
+            rounded_corners: true,
         }
     }
 
@@ -107,6 +119,11 @@ impl App {
             self.system_monitor.update();
             self.battery_monitor.update();
             self.diskio_monitor.update();
+            
+            // Update GPU if available
+            if self.gpu_monitor.is_enabled() {
+                self.gpu_monitor.update();
+            }
             
             // Less frequent updates for disk and processes
             if elapsed >= self.config.disk_refresh_duration() {
@@ -514,28 +531,36 @@ impl App {
             ViewPage::Storage => "Storage",
         };
 
+        let gpu_indicator = if self.gpu_monitor.is_enabled() {
+            format!(" 🎮 {}GPU ", self.gpu_monitor.gpu_count())
+        } else {
+            String::new()
+        };
+
         let title = vec![
             Line::from(vec![
-                Span::styled(" ▓▓ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled("rtop", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled(" v2.1 ", Style::default().fg(Color::DarkGray)),
-                Span::raw("  │  "),
-                Span::styled("◆", Style::default().fg(Color::Green)),
+                Span::styled(" ⚡ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("rtop", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" v3.0", Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::ITALIC)),
                 Span::raw(" "),
-                Span::styled(page_indicator, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("│", Style::default().fg(Color::DarkGray)),
-                Span::raw("  F2-F5: Pages  "),
-                Span::styled("│", Style::default().fg(Color::DarkGray)),
-                Span::raw("  Press "),
+                Span::styled(&gpu_indicator, Style::default().fg(Color::Green)),
+                Span::raw(" │ "),
+                Span::styled("◆ ", Style::default().fg(Color::Magenta)),
+                Span::styled(page_indicator, Style::default().fg(Color::Rgb(255, 200, 100)).add_modifier(Modifier::BOLD)),
+                Span::raw(" │ "),
+                Span::styled("F2-F5", Style::default().fg(Color::Cyan)),
+                Span::raw(": Pages │ "),
                 Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(" for help"),
+                Span::raw(": Help │ "),
+                Span::styled("g", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw(": GPU"),
             ]),
         ];
 
         let block = Block::default()
             .borders(Borders::BOTTOM)
-            .border_style(Style::default().fg(Color::Cyan));
+            .border_style(Style::default().fg(Color::Rgb(100, 150, 200)))
+            .border_type(ratatui::widgets::BorderType::Double);
 
         let paragraph = Paragraph::new(title)
             .block(block)
@@ -581,37 +606,50 @@ impl App {
             })
             .collect();
 
+        // Calculate average CPU usage for title color
+        let avg_cpu = cpu_data.iter().map(|(_, usage, _)| usage).sum::<f32>() / cpu_data.len().max(1) as f32;
+        let title_color = if avg_cpu > 80.0 {
+            Color::Rgb(235, 112, 112) // Red
+        } else if avg_cpu > 60.0 {
+            Color::Rgb(245, 166, 35) // Orange
+        } else if avg_cpu > 40.0 {
+            Color::Rgb(255, 195, 69) // Yellow
+        } else {
+            Color::Rgb(72, 151, 216) // Blue
+        };
+
         let chart = Chart::new(datasets)
             .block(
                 Block::default()
                     .title(vec![
-                        Span::styled("⚡ ", Style::default().fg(Color::Yellow)),
-                        Span::styled("CPU Usage", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled("⚡ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                        Span::styled("CPU Usage ", Style::default().fg(title_color).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("[{:.1}%]", avg_cpu), Style::default().fg(title_color)),
                     ])
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan))
+                    .border_style(Style::default().fg(Color::Rgb(61, 123, 70)))
                     .border_type(ratatui::widgets::BorderType::Rounded),
             )
             .x_axis(
                 Axis::default()
-                    .title(Span::styled("← Time (seconds)", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled("← Time (60s history)", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 60.0])
                     .labels(vec![
-                        Span::styled("60", Style::default().fg(Color::DarkGray)),
-                        Span::styled("30", Style::default().fg(Color::DarkGray)),
-                        Span::styled("0", Style::default().fg(Color::White)),
+                        Span::styled("60s", Style::default().fg(Color::DarkGray)),
+                        Span::styled("30s", Style::default().fg(Color::Gray)),
+                        Span::styled("now", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                     ]),
             )
             .y_axis(
                 Axis::default()
-                    .title(Span::styled("Usage %", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled("% ↑", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 100.0])
                     .labels(vec![
-                        Span::styled("0", Style::default().fg(Color::Green)),
-                        Span::styled("50", Style::default().fg(Color::Yellow)),
-                        Span::styled("100", Style::default().fg(Color::Red)),
+                        Span::styled("  0%", Style::default().fg(Color::Rgb(72, 151, 216))),
+                        Span::styled(" 50%", Style::default().fg(Color::Rgb(255, 195, 69))),
+                        Span::styled("100%", Style::default().fg(Color::Rgb(235, 112, 112))),
                     ]),
             )
             .legend_position(Some(ratatui::widgets::LegendPosition::TopLeft))

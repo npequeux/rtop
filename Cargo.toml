@@ -1,11 +1,11 @@
 [package]
 name = "rtop"
-version = "2.1.0"
+version = "3.0.0"
 edition = "2021"
 authors = ["Nicolas Pequeux"]
-description = "System monitoring dashboard for terminal"
+description = "Advanced system monitoring dashboard with btop++-inspired features"
 license = "MIT"
-keywords = ["system", "monitoring", "top", "dashboard", "terminal"]
+keywords = ["system", "monitoring", "top", "dashboard", "terminal", "gpu", "braille"]
 categories = ["command-line-utilities"]
 
 [[bin]]

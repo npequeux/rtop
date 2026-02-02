@@ -5,6 +5,8 @@ mod export;
 mod monitor;
 mod ui;
 mod utils;
+mod graphics;
+mod theme;
 
 use clap::Parser;
 use cli::{Cli, Commands};

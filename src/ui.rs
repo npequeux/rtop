@@ -574,7 +574,7 @@ impl App {
 
                 Dataset::default()
                     .name(name.clone())
-                    .marker(symbols::Marker::Braille)
+                    .marker(symbols::Marker::Block)
                     .graph_type(ratatui::widgets::GraphType::Line)
                     .style(Style::default().fg(color).add_modifier(Modifier::BOLD))
                     .data(data)
@@ -653,13 +653,13 @@ impl App {
         let datasets = vec![
             Dataset::default()
                 .name(format!("RAM {:.1}%", mem_percent))
-                .marker(symbols::Marker::Braille)
+                .marker(symbols::Marker::Block)
                 .graph_type(ratatui::widgets::GraphType::Line)
                 .style(Style::default().fg(mem_color).add_modifier(Modifier::BOLD))
                 .data(&mem_data),
             Dataset::default()
                 .name(format!("Swap {:.1}%", swap_percent))
-                .marker(symbols::Marker::Braille)
+                .marker(symbols::Marker::Block)
                 .graph_type(ratatui::widgets::GraphType::Line)
                 .style(Style::default().fg(swap_color).add_modifier(Modifier::BOLD))
                 .data(&swap_data),

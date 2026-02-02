@@ -1,27 +1,52 @@
 # rtop
 
-Advanced system monitoring dashboard for terminal written in Rust.
+Advanced system monitoring dashboard for terminal written in Rust - **Now with btop++-inspired features!**
+
+## 🎉 NEW in v3.0 - btop++ Feature Parity
+
+rtop now includes advanced features inspired by btop++:
+
+- 🎨 **Advanced Graphics**: Braille/Unicode graphs with 2x data density
+- 🌈 **Theme System**: Color gradients and customizable TOML themes
+- 🎮 **GPU Monitoring**: NVIDIA/AMD/Intel GPU support with real-time stats
+- 🌲 **Process Tree View**: Hierarchical process display
+- 📶 **Enhanced Signals**: 9 different process signals (TERM, KILL, STOP, CONT, etc.)
+- 🎯 **Sophisticated UI**: Rounded corners, gradient meters, multiple graph styles
+- ⚙️ **Extended Config**: Per-component customization and theming
+
+See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 
 ## Features
 
 ### Core Monitoring
-- **Real-time CPU monitoring**: Track CPU usage for all cores with historical graphs
-- **Memory & Swap monitoring**: Visual gauges and historical charts with color-coded warnings
-- **Temperature monitoring**: Auto-detect and display all system temperature sensors (when available)
+- **Real-time CPU monitoring**: Track CPU usage for all cores with Braille/Unicode historical graphs
+- **Memory & Swap monitoring**: Visual gauges and historical charts with color gradients
+- **GPU monitoring**: NVIDIA/AMD GPU utilization, memory, temperature, and power (NEW!)
+- **Temperature monitoring**: Auto-detect and display all system temperature sensors
 - **Network statistics**: Real-time transfer rates with per-interface monitoring
 - **Disk usage**: Visual progress bars with usage alerts
 - **Battery monitoring**: Display battery percentage, charging status, and time remaining
 - **Disk I/O**: Monitor read/write bytes per second for all disks
-- **Process management**: View, sort, filter, and kill processes with mouse support
+- **Process management**: View, sort, filter, kill processes with tree view support
 - **System information**: Hostname, OS, kernel version, uptime, and load averages
 
-### Interactive Features (v2.1)
+### Interactive Features (v3.0)
 - **Mouse Support**: Scroll process list with mouse wheel, click to select processes
 - **Multi-page Navigation**: Switch between Overview, Processes, Network, and Storage pages with F2-F5
 - **Process Scrolling**: Navigate with ↑↓ arrows, PageUp/PageDown, Home/End keys
-- **Process Kill**: Press `k` to kill selected process (with confirmation dialog)
+- **Process Tree View**: Hierarchical display of parent-child process relationships (NEW!)
+- **Enhanced Signals**: Send TERM, KILL, INT, HUP, QUIT, STOP, CONT, USR1, USR2 to processes (NEW!)
 - **Regex Filtering**: Press `/` to filter processes by regex pattern
 - **Visual Feedback**: Selected process highlighting, scroll indicators, page navigation hints
+- **GPU Display**: Real-time GPU utilization, memory, temperature with graphs (NEW!)
+
+### Advanced Graphics & Theming (NEW!)
+- **Braille Graphs**: High-resolution unicode graphs (⣿⣾⣶⣦) with 2x data density
+- **Multiple Graph Styles**: Braille, Block, TTY-compatible rendering
+- **Color Gradients**: 101-step smooth color transitions for all metrics
+- **Theme System**: TOML-based themes with per-component color customization
+- **Rounded Corners**: Beautiful UI with ╭╮╰╯ box drawing characters
+- **Gradient Meters**: Color-coded meters showing warning/critical zones
 
 ### Advanced Features
 - **Help overlay**: Press `h` or `F1` for interactive help screen with all shortcuts

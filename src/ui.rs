@@ -673,31 +673,31 @@ impl App {
         }
 
         let mem_color = if mem_percent > 85.0 {
-            Color::Red
+            Color::Rgb(224, 92, 92) // Red
         } else if mem_percent > 70.0 {
-            Color::Yellow
+            Color::Rgb(245, 166, 35) // Orange
         } else {
-            COLORS[0]
+            Color::Rgb(255, 199, 69) // Yellow
         };
 
         let swap_color = if swap_percent > 85.0 {
-            Color::Red
+            Color::Rgb(208, 92, 92)
         } else if swap_percent > 70.0 {
-            Color::Yellow
+            Color::Rgb(232, 148, 35)
         } else {
-            COLORS[1]
+            Color::Rgb(144, 224, 163) // Green
         };
 
         let datasets = vec![
             Dataset::default()
                 .name(format!("RAM {:.1}%", mem_percent))
-                .marker(symbols::Marker::Dot)
+                .marker(symbols::Marker::Braille)
                 .graph_type(ratatui::widgets::GraphType::Line)
                 .style(Style::default().fg(mem_color).add_modifier(Modifier::BOLD))
                 .data(&mem_data),
             Dataset::default()
                 .name(format!("Swap {:.1}%", swap_percent))
-                .marker(symbols::Marker::Dot)
+                .marker(symbols::Marker::Braille)
                 .graph_type(ratatui::widgets::GraphType::Line)
                 .style(Style::default().fg(swap_color).add_modifier(Modifier::BOLD))
                 .data(&swap_data),
@@ -707,33 +707,34 @@ impl App {
             .block(
                 Block::default()
                     .title(vec![
-                        Span::styled("💾 ", Style::default().fg(Color::Blue)),
-                        Span::styled("Memory Usage", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled("💾 ", Style::default().fg(Color::Rgb(245, 166, 35))),
+                        Span::styled("Memory & Swap ", Style::default().fg(Color::Rgb(138, 136, 46)).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("[{:.1}%]", mem_percent), Style::default().fg(mem_color)),
                     ])
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan))
+                    .border_style(Style::default().fg(Color::Rgb(138, 136, 46)))
                     .border_type(ratatui::widgets::BorderType::Rounded),
             )
             .x_axis(
                 Axis::default()
-                    .title(Span::styled("← Time", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled("← Time (60s)", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 60.0])
                     .labels(vec![
-                        Span::styled("60", Style::default().fg(Color::DarkGray)),
-                        Span::styled("30", Style::default().fg(Color::DarkGray)),
-                        Span::styled("0", Style::default().fg(Color::White)),
+                        Span::styled("60s", Style::default().fg(Color::DarkGray)),
+                        Span::styled("30s", Style::default().fg(Color::Gray)),
+                        Span::styled("now", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                     ]),
             )
             .y_axis(
                 Axis::default()
-                    .title(Span::styled("Usage %", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled("% ↑", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 100.0])
                     .labels(vec![
-                        Span::styled("0", Style::default().fg(Color::Green)),
-                        Span::styled("50", Style::default().fg(Color::Yellow)),
-                        Span::styled("100", Style::default().fg(Color::Red)),
+                        Span::styled("  0%", Style::default().fg(Color::Rgb(144, 224, 163))),
+                        Span::styled(" 50%", Style::default().fg(Color::Rgb(255, 199, 69))),
+                        Span::styled("100%", Style::default().fg(Color::Rgb(224, 92, 92))),
                     ]),
             )
             .legend_position(Some(ratatui::widgets::LegendPosition::TopLeft))

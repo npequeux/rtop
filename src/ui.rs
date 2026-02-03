@@ -428,50 +428,26 @@ impl App {
         // Adjust layout based on temperature sensor availability
         let has_temp = self.temp_monitor.has_temperature_sensors();
         
-        let chunks = if has_temp {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(25),  // CPU
-                    Constraint::Percentage(25),  // Memory
-                    Constraint::Percentage(25),  // Temperature
-                    Constraint::Percentage(25),  // Bottom section
-                ])
-                .split(area)
-        } else {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(33),
-                    Constraint::Percentage(33),
-                    Constraint::Percentage(34),
-                ])
-                .split(area)
-        };
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(22),  // CPU
+                Constraint::Percentage(22),  // Memory & Swap combined
+                Constraint::Percentage(56),  // Bottom section
+            ])
+            .split(area);
 
         // Top section: CPU
         self.draw_cpu(frame, chunks[0]);
 
-        // Middle section: Memory and Network
-        let middle_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(67), Constraint::Percentage(33)])
-            .split(chunks[1]);
+        // Middle section: Memory and Swap on same graph
+        self.draw_memory(frame, chunks[1]);
 
-        self.draw_memory(frame, middle_chunks[0]);
-        self.draw_memory_gauges(frame, middle_chunks[1]);
-
-        // Temperature section (if available)
-        if has_temp {
-            self.draw_temperature(frame, chunks[2]);
-        }
-
-        // Bottom section: Network, Disk, and Processes
-        let bottom_idx = if has_temp { 3 } else { 2 };
+        // Bottom section: Left column (Network, Disk, Gauges), Right column (Temperature if available, Processes)
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(chunks[bottom_idx]);
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(chunks[2]);
 
         let left_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -480,7 +456,18 @@ impl App {
 
         self.draw_network(frame, left_chunks[0]);
         self.draw_disk(frame, left_chunks[1]);
-        self.draw_processes(frame, bottom_chunks[1]);
+
+        // Right column: Temperature (if available) and Processes
+        if has_temp {
+            let right_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+                .split(bottom_chunks[1]);
+            self.draw_temperature_compact(frame, right_chunks[0]);
+            self.draw_processes(frame, right_chunks[1]);
+        } else {
+            self.draw_processes(frame, bottom_chunks[1]);
+        }
     }
 
     fn draw_processes_page(&self, frame: &mut Frame, area: Rect) {
@@ -1363,6 +1350,79 @@ impl App {
         );
 
         frame.render_widget(paragraph, chunks[1]);
+    }
+
+    fn draw_temperature_compact(&self, frame: &mut Frame, area: Rect) {
+        let temp_data = self.temp_monitor.get_temperature_data();
+        
+        // If no temperature data available, show a message
+        if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
+            return;
+        }
+
+        // Create a compact horizontal display of temperatures
+        let mut lines = vec![Line::from("")];
+        
+        // Group temperatures into rows
+        let temps_per_row = 3;
+        for chunk in temp_data.chunks(temps_per_row) {
+            let mut row_spans = vec![Span::raw("  ")];
+            
+            for (i, (label, temp, _)) in chunk.iter().enumerate() {
+                if i > 0 {
+                    row_spans.push(Span::raw(" │ "));
+                }
+                
+                let temp_color = if *temp > 80.0 {
+                    Color::Red
+                } else if *temp > 65.0 {
+                    Color::Yellow
+                } else if *temp > 50.0 {
+                    Color::Green
+                } else {
+                    Color::Cyan
+                };
+
+                let icon = if *temp > 80.0 {
+                    "🔥"
+                } else if *temp > 65.0 {
+                    "🌡"
+                } else {
+                    "❄"
+                };
+
+                // Truncate long labels
+                let display_label = if label.len() > 12 {
+                    format!("{}...", &label[..9])
+                } else {
+                    label.clone()
+                };
+
+                row_spans.push(Span::styled(format!("{} ", icon), Style::default().fg(temp_color)));
+                row_spans.push(Span::styled(
+                    format!("{:.0}°C ", temp),
+                    Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
+                ));
+                row_spans.push(Span::styled(display_label, Style::default().fg(Color::DarkGray)));
+            }
+            
+            lines.push(Line::from(row_spans));
+        }
+        
+        lines.push(Line::from(""));
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .title(vec![
+                    Span::styled("🌡 ", Style::default().fg(Color::Red)),
+                    Span::styled("Temperature", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
+                ])
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        );
+
+        frame.render_widget(paragraph, area);
     }
 
     fn draw_footer(&self, frame: &mut Frame, area: Rect) {

@@ -451,35 +451,16 @@ impl App {
         // Middle section: Memory and Swap on same graph
         self.draw_memory(frame, chunks[1]);
 
-        // Bottom section: Left column (Network, Disk, GPU, NPU, Temperature), Right column (Processes)
+        // Bottom section: Left column (Network, Disk, GPU, NPU), Right column (Processes and Temperature)
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(chunks[2]);
 
-        // Left column: Network, Disk, GPU, NPU, and Temperature
-        match (has_temp, has_gpu, has_npu) {
-            (true, true, true) => {
-                // All components available
-                let left_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Percentage(25),  // Network
-                        Constraint::Percentage(20),  // Disk
-                        Constraint::Percentage(22),  // GPU
-                        Constraint::Percentage(18),  // NPU
-                        Constraint::Percentage(15),  // Temperature
-                    ])
-                    .split(bottom_chunks[0]);
-
-                self.draw_network(frame, left_chunks[0]);
-                self.draw_disk(frame, left_chunks[1]);
-                self.draw_gpu(frame, left_chunks[2]);
-                self.draw_npu(frame, left_chunks[3]);
-                self.draw_temperature_compact(frame, left_chunks[4]);
-            },
-            (false, true, true) => {
-                // GPU and NPU available, no temperature
+        // Left column: Network, Disk, GPU, NPU (no temperature here)
+        match (has_gpu, has_npu) {
+            (true, true) => {
+                // Both GPU and NPU available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -495,41 +476,7 @@ impl App {
                 self.draw_gpu(frame, left_chunks[2]);
                 self.draw_npu(frame, left_chunks[3]);
             },
-            (true, false, true) => {
-                // NPU and Temperature available, no GPU
-                let left_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Percentage(35),  // Network
-                        Constraint::Percentage(30),  // Disk
-                        Constraint::Percentage(20),  // NPU
-                        Constraint::Percentage(15),  // Temperature
-                    ])
-                    .split(bottom_chunks[0]);
-
-                self.draw_network(frame, left_chunks[0]);
-                self.draw_disk(frame, left_chunks[1]);
-                self.draw_npu(frame, left_chunks[2]);
-                self.draw_temperature_compact(frame, left_chunks[3]);
-            },
-            (true, true, false) => {
-                // GPU and Temperature available, no NPU
-                let left_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Percentage(30),  // Network
-                        Constraint::Percentage(25),  // Disk
-                        Constraint::Percentage(25),  // GPU
-                        Constraint::Percentage(20),  // Temperature
-                    ])
-                    .split(bottom_chunks[0]);
-
-                self.draw_network(frame, left_chunks[0]);
-                self.draw_disk(frame, left_chunks[1]);
-                self.draw_gpu(frame, left_chunks[2]);
-                self.draw_temperature_compact(frame, left_chunks[3]);
-            },
-            (false, false, true) => {
+            (false, true) => {
                 // Only NPU available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -544,8 +491,8 @@ impl App {
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_npu(frame, left_chunks[2]);
             },
-            (false, true, false) => {
-                // GPU available, no temperature or NPU
+            (true, false) => {
+                // Only GPU available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -559,23 +506,8 @@ impl App {
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_gpu(frame, left_chunks[2]);
             },
-            (true, false, false) => {
-                // Temperature available, no GPU or NPU
-                let left_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Percentage(40),  // Network
-                        Constraint::Percentage(35),  // Disk
-                        Constraint::Percentage(25),  // Temperature
-                    ])
-                    .split(bottom_chunks[0]);
-
-                self.draw_network(frame, left_chunks[0]);
-                self.draw_disk(frame, left_chunks[1]);
-                self.draw_temperature_compact(frame, left_chunks[2]);
-            },
-            (false, false, false) => {
-                // Neither available
+            (false, false) => {
+                // Neither GPU nor NPU
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -586,8 +518,19 @@ impl App {
             },
         }
 
-        // Right column: Processes (full height)
-        self.draw_processes(frame, bottom_chunks[1]);
+        // Right column: Split horizontally into Processes (85%) and Temperature (15%)
+        if has_temp {
+            let right_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(85), Constraint::Percentage(15)])
+                .split(bottom_chunks[1]);
+
+            self.draw_processes(frame, right_chunks[0]);
+            self.draw_temperature(frame, right_chunks[1]);
+        } else {
+            // No temperature, processes take full width
+            self.draw_processes(frame, bottom_chunks[1]);
+        }
     }
 
     fn draw_processes_page(&self, frame: &mut Frame, area: Rect) {
@@ -1351,6 +1294,70 @@ impl App {
                 .title(vec![
                     Span::styled("🌡 ", Style::default().fg(Color::Red)),
                     Span::styled("Temperature", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
+                ])
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        );
+
+        frame.render_widget(paragraph, area);
+    }
+
+    fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
+        let temp_data = self.temp_monitor.get_temperature_data();
+        
+        // If no temperature data available, show a message
+        if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
+            return;
+        }
+
+        // Create a vertical column display of temperatures
+        let mut lines = vec![];
+        
+        for (label, temp, _) in temp_data.iter() {
+            let temp_color = if *temp > 80.0 {
+                Color::Red
+            } else if *temp > 65.0 {
+                Color::Yellow
+            } else if *temp > 50.0 {
+                Color::Green
+            } else {
+                Color::Cyan
+            };
+
+            let icon = if *temp > 80.0 {
+                "🔥"
+            } else if *temp > 65.0 {
+                "🌡"
+            } else {
+                "❄"
+            };
+
+            // Truncate long labels for narrow column
+            let display_label = if label.len() > 8 {
+                format!("{}.", &label[..7])
+            } else {
+                label.clone()
+            };
+
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} ", icon), Style::default().fg(temp_color)),
+                Span::styled(
+                    format!("{:3.0}°", temp),
+                    Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            
+            lines.push(Line::from(vec![
+                Span::raw("  "),
+                Span::styled(display_label, Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .title(vec![
+                    Span::styled("🌡", Style::default().fg(Color::Red)),
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))

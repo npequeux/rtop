@@ -599,7 +599,7 @@ impl App {
 
                 Dataset::default()
                     .name(name.clone())
-                    .marker(symbols::Marker::Dot)
+                    .marker(symbols::Marker::Braille)
                     .graph_type(ratatui::widgets::GraphType::Line)
                     .style(Style::default().fg(color).add_modifier(Modifier::BOLD))
                     .data(data)

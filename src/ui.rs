@@ -1230,6 +1230,7 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     fn draw_temperature_compact(&self, frame: &mut Frame, area: Rect) {
         let temp_data = self.temp_monitor.get_temperature_data();
         

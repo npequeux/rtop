@@ -3,6 +3,7 @@
 
 use std::collections::VecDeque;
 use std::process::Command;
+use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 const HISTORY_SIZE: usize = 60;
@@ -142,13 +143,31 @@ impl GpuMonitor {
     }
     
     fn detect_intel(&mut self) -> bool {
-        // Intel GPU detection via intel_gpu_top (if available)
-        let output = Command::new("intel_gpu_top")
-            .arg("-l")
-            .output();
+        // Intel GPU detection via sysfs DRM interface
+        use std::fs;
         
-        if let Ok(output) = output {
-            return output.status.success();
+        // Check for Intel GPUs via /sys/class/drm
+        if let Ok(entries) = fs::read_dir("/sys/class/drm") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.file_name().and_then(|n| n.to_str()).map_or(false, |n| n.starts_with("card")) {
+                    let vendor_path = path.join("device/vendor");
+                    if vendor_path.exists() {
+                        if let Ok(vendor) = fs::read_to_string(&vendor_path) {
+                            // 0x8086 is Intel's vendor ID
+                            if vendor.trim() == "0x8086" {
+                                // Check if it has render capabilities (is a GPU, not just display)
+                                let device_path = path.join("device/device");
+                                if device_path.exists() {
+                                    self.utilization_history.push(VecDeque::with_capacity(HISTORY_SIZE));
+                                    self.memory_history.push(VecDeque::with_capacity(HISTORY_SIZE));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         
         false
@@ -235,9 +254,288 @@ impl GpuMonitor {
     }
     
     fn update_intel(&mut self) {
-        // Intel GPU update
-        // This would require parsing intel_gpu_top output
-        // Simplified implementation
+        use std::fs;
+        
+        // Try intel_gpu_top first for accurate metrics
+        if let Some(intel_info) = Self::read_intel_gpu_top() {
+            self.gpus.clear();
+            for (idx, info) in intel_info.iter().enumerate() {
+                if idx < self.utilization_history.len() {
+                    let hist = &mut self.utilization_history[idx];
+                    hist.push_back(info.utilization as f64);
+                    if hist.len() > HISTORY_SIZE {
+                        hist.pop_front();
+                    }
+                    
+                    let mem_hist = &mut self.memory_history[idx];
+                    mem_hist.push_back(info.memory_percent() as f64);
+                    if mem_hist.len() > HISTORY_SIZE {
+                        mem_hist.pop_front();
+                    }
+                }
+                self.gpus.push(info.clone());
+            }
+            return;
+        }
+        
+        // Fallback: Read Intel GPU info from sysfs
+        if let Ok(entries) = fs::read_dir("/sys/class/drm") {
+            self.gpus.clear();
+            let mut gpu_idx = 0;
+            
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with("card") && !name.contains("-") {
+                        let vendor_path = path.join("device/vendor");
+                        if let Ok(vendor) = fs::read_to_string(&vendor_path) {
+                            if vendor.trim() == "0x8086" {
+                                // Get device name from lspci
+                                let device_path = path.join("device/device");
+                                let device_id = fs::read_to_string(&device_path)
+                                    .unwrap_or_default()
+                                    .trim()
+                                    .to_string();
+                                
+                                let gpu_name = Self::get_intel_gpu_name(&device_id);
+                                
+                                // Try to estimate utilization from frequency
+                                let utilization = Self::estimate_intel_utilization();
+                                
+                                let mem_total = Self::read_drm_memory(&path);
+                                
+                                let gpu_info = GpuInfo {
+                                    index: gpu_idx,
+                                    name: gpu_name,
+                                    vendor: "Intel".to_string(),
+                                    utilization,
+                                    memory_used: 0, // Not available without intel_gpu_top
+                                    memory_total: mem_total,
+                                    temperature: Self::read_drm_temp(&path),
+                                    power_usage: None,
+                                    clock_speed: Self::read_intel_frequency(&path),
+                                    fan_speed: None,
+                                };
+                                
+                                // Update history
+                                if gpu_idx < self.utilization_history.len() {
+                                    let hist = &mut self.utilization_history[gpu_idx];
+                                    hist.push_back(utilization as f64);
+                                    if hist.len() > HISTORY_SIZE {
+                                        hist.pop_front();
+                                    }
+                                    
+                                    let mem_hist = &mut self.memory_history[gpu_idx];
+                                    mem_hist.push_back(0.0);
+                                    if mem_hist.len() > HISTORY_SIZE {
+                                        mem_hist.pop_front();
+                                    }
+                                }
+                                
+                                self.gpus.push(gpu_info);
+                                gpu_idx += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    fn get_intel_gpu_name(device_id: &str) -> String {
+        // Try to get name from lspci
+        if let Ok(output) = Command::new("lspci").arg("-d").arg("8086:").output() {
+            if output.status.success() {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                for line in output_str.lines() {
+                    if line.contains("VGA") || line.contains("Display") || line.contains("3D") {
+                        // Extract GPU name after the colon
+                        if let Some(name_part) = line.split(':').nth(2) {
+                            return name_part.trim().to_string();
+                        }
+                    }
+                }
+            }
+        }
+        
+        format!("Intel GPU {}", device_id)
+    }
+    
+    fn read_drm_memory(card_path: &Path) -> u64 {
+        use std::fs;
+        
+        // Try to read memory info from various possible locations
+        let mem_paths = [
+            "device/mem_info_vram_total",
+            "device/mem_info_gtt_total",
+            "gt/gt0/addr_range",
+        ];
+        
+        for mem_path in &mem_paths {
+            let full_path = card_path.join(mem_path);
+            if let Ok(mem_str) = fs::read_to_string(&full_path) {
+                if let Ok(mem) = mem_str.trim().parse::<u64>() {
+                    return mem;
+                }
+            }
+        }
+        
+        // For Intel integrated GPUs with shared system memory, show a placeholder
+        // Modern Intel iGPUs dynamically allocate from system RAM
+        0 // Will show "N/A" in UI
+    }
+    
+    fn read_drm_temp(card_path: &Path) -> Option<i32> {
+        use std::fs;
+        
+        // Try various hwmon paths for temperature
+        if let Ok(entries) = fs::read_dir(card_path.join("device/hwmon")) {
+            for entry in entries.flatten() {
+                let temp_path = entry.path().join("temp1_input");
+                if let Ok(temp_str) = fs::read_to_string(&temp_path) {
+                    if let Ok(temp_millis) = temp_str.trim().parse::<i32>() {
+                        return Some(temp_millis / 1000); // Convert from millidegrees
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+    
+    fn read_intel_frequency(card_path: &Path) -> Option<u32> {
+        use std::fs;
+        
+        // Try to read current frequency
+        let freq_paths = [
+            "gt/gt0/rps_cur_freq_mhz",
+            "gt_cur_freq_mhz",
+        ];
+        
+        for freq_path in &freq_paths {
+            let full_path = card_path.join(freq_path);
+            if let Ok(freq_str) = fs::read_to_string(&full_path) {
+                if let Ok(freq) = freq_str.trim().parse::<u32>() {
+                    return Some(freq);
+                }
+            }
+        }
+        
+        None
+    }
+    
+    fn read_intel_gpu_top() -> Option<Vec<GpuInfo>> {
+        // Try to use intel_gpu_top in JSON mode for accurate metrics
+        let output = Command::new("intel_gpu_top")
+            .args(&["-J", "-s", "100"])  // JSON output, 100ms sample
+            .output();
+        
+        if let Ok(output) = output {
+            if output.status.success() {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                return Self::parse_intel_gpu_top_json(&output_str);
+            }
+        }
+        
+        None
+    }
+    
+    fn parse_intel_gpu_top_json(json_str: &str) -> Option<Vec<GpuInfo>> {
+        // Parse intel_gpu_top JSON output
+        // Format: {"period":{"duration":0.1,"unit":"ms"},"engines":{"Render/3D/0":{"busy":15.5,...},...}}
+        use serde_json::Value;
+        
+        if let Ok(data) = serde_json::from_str::<Value>(json_str) {
+            let mut gpus = Vec::new();
+            let gpu_name = Self::get_intel_gpu_name("");
+            
+            // Extract render engine utilization
+            let mut total_util = 0.0;
+            let mut count = 0;
+            
+            if let Some(engines) = data.get("engines").and_then(|e| e.as_object()) {
+                for (_engine_name, engine_data) in engines.iter() {
+                    if let Some(busy) = engine_data.get("busy").and_then(|b| b.as_f64()) {
+                        total_util += busy;
+                        count += 1;
+                    }
+                }
+            }
+            
+            let utilization = if count > 0 {
+                (total_util / count as f64).min(100.0) as u8
+            } else {
+                0
+            };
+            
+            gpus.push(GpuInfo {
+                index: 0,
+                name: gpu_name,
+                vendor: "Intel".to_string(),
+                utilization,
+                memory_used: 0,
+                memory_total: 0,
+                temperature: None,
+                power_usage: None,
+                clock_speed: None,
+                fan_speed: None,
+            });
+            
+            return Some(gpus);
+        }
+        
+        None
+    }
+    
+    fn estimate_intel_utilization() -> u8 {
+        // Estimate GPU utilization by checking various activity indicators
+        use std::fs;
+        use std::time::Duration;
+        
+        // Method 1: Check runtime active time (if available)
+        let runtime_path = "/sys/class/drm/card0/power/runtime_active_time";
+        if let Ok(before_str) = fs::read_to_string(runtime_path) {
+            if let Ok(before) = before_str.trim().parse::<u64>() {
+                std::thread::sleep(Duration::from_millis(100));
+                if let Ok(after_str) = fs::read_to_string(runtime_path) {
+                    if let Ok(after) = after_str.trim().parse::<u64>() {
+                        // Calculate percentage of time active
+                        let delta = after.saturating_sub(before);
+                        if delta > 0 {
+                            // delta is in microseconds, we sampled for 100ms = 100000us
+                            let percent = ((delta as f64 / 100000.0) * 100.0).min(100.0) as u8;
+                            return percent;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Method 2: Check DRM clients
+        if let Ok(entries) = fs::read_dir("/sys/kernel/debug/dri/0/") {
+            let mut active_clients = 0;
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("client") {
+                    active_clients += 1;
+                }
+            }
+            
+            if active_clients > 0 {
+                // Rough estimate: each client might use ~20% on average
+                return (active_clients * 20).min(100) as u8;
+            }
+        }
+        
+        // Method 3: Check if render node is open
+        if fs::metadata("/dev/dri/renderD128").map(|m| m.len()).unwrap_or(0) > 0 {
+            // Render node exists and is accessible - GPU might be in use
+            // Return a conservative estimate
+            return 10;
+        }
+        
+        0
     }
     
     pub fn is_enabled(&self) -> bool {

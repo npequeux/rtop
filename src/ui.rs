@@ -1425,17 +1425,34 @@ impl App {
             ]));
 
             // Memory usage
-            let mem_used_gb = gpu.memory_used as f64 / 1024.0 / 1024.0 / 1024.0;
-            let mem_total_gb = gpu.memory_total as f64 / 1024.0 / 1024.0 / 1024.0;
-            let mem_filled = (mem_percent as usize * util_bar_width) / 100;
-            let mem_bar = format!("[{}{}]", "█".repeat(mem_filled), "░".repeat(util_bar_width - mem_filled));
+            if gpu.memory_total > 0 {
+                let mem_used_gb = gpu.memory_used as f64 / 1024.0 / 1024.0 / 1024.0;
+                let mem_total_gb = gpu.memory_total as f64 / 1024.0 / 1024.0 / 1024.0;
+                let mem_filled = (mem_percent as usize * util_bar_width) / 100;
+                let mem_bar = format!("[{}{}]", "█".repeat(mem_filled), "░".repeat(util_bar_width - mem_filled));
+                
+                lines.push(Line::from(vec![
+                    Span::raw("   MEM: "),
+                    Span::styled(format!("{:3}% ", mem_percent), Style::default().fg(mem_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(mem_bar, Style::default().fg(mem_color)),
+                    Span::styled(format!(" {:.1}/{:.1}GB", mem_used_gb, mem_total_gb), Style::default().fg(Color::Gray)),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::raw("   MEM: "),
+                    Span::styled("Shared ", Style::default().fg(Color::Gray)),
+                    Span::styled("(System RAM)", Style::default().fg(Color::DarkGray)),
+                ]));
+            }
             
-            lines.push(Line::from(vec![
-                Span::raw("   MEM: "),
-                Span::styled(format!("{:3}% ", mem_percent), Style::default().fg(mem_color).add_modifier(Modifier::BOLD)),
-                Span::styled(mem_bar, Style::default().fg(mem_color)),
-                Span::styled(format!(" {:.1}/{:.1}GB", mem_used_gb, mem_total_gb), Style::default().fg(Color::Gray)),
-            ]));
+            // Add helpful hint if utilization is very low
+            if gpu.utilization == 0 && gpu.vendor == "Intel" {
+                lines.push(Line::from(vec![
+                    Span::raw("   "),
+                    Span::styled("💡 ", Style::default().fg(Color::Yellow)),
+                    Span::styled("Install intel-gpu-tools for accurate metrics", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+                ]));
+            }
 
             // Additional info line
             let mut info_spans = vec![Span::raw("   ")];

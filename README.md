@@ -1,5 +1,11 @@
 # rtop
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![Build Status](https://github.com/npequeux/mytop/workflows/rust/badge.svg)](https://github.com/npequeux/mytop/actions)
+[![GitHub release](https://img.shields.io/github/v/release/npequeux/mytop.svg)](https://github.com/npequeux/mytop/releases)
+[![GitHub stars](https://img.shields.io/github/stars/npequeux/mytop.svg?style=social)](https://github.com/npequeux/mytop)
+
 Advanced system monitoring dashboard for terminal written in Rust - **Now with btop++-inspired features!**
 
 ## 🎉 NEW in v3.0 - btop++ Feature Parity

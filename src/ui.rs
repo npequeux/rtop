@@ -449,25 +449,28 @@ impl App {
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(chunks[2]);
 
-        let left_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(bottom_chunks[0]);
-
-        self.draw_network(frame, left_chunks[0]);
-        self.draw_disk(frame, left_chunks[1]);
-
-        // Right column: Temperature (if available) and Processes
+        // Left column: Network, Disk, and Temperature
         if has_temp {
-            let right_chunks = Layout::default()
+            let left_chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
-                .split(bottom_chunks[1]);
-            self.draw_temperature_compact(frame, right_chunks[0]);
-            self.draw_processes(frame, right_chunks[1]);
+                .constraints([Constraint::Percentage(40), Constraint::Percentage(35), Constraint::Percentage(25)])
+                .split(bottom_chunks[0]);
+
+            self.draw_network(frame, left_chunks[0]);
+            self.draw_disk(frame, left_chunks[1]);
+            self.draw_temperature_compact(frame, left_chunks[2]);
         } else {
-            self.draw_processes(frame, bottom_chunks[1]);
+            let left_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(bottom_chunks[0]);
+
+            self.draw_network(frame, left_chunks[0]);
+            self.draw_disk(frame, left_chunks[1]);
         }
+
+        // Right column: Processes (full height)
+        self.draw_processes(frame, bottom_chunks[1]);
     }
 
     fn draw_processes_page(&self, frame: &mut Frame, area: Rect) {

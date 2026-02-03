@@ -9,6 +9,7 @@ pub struct DiskIOMonitor {
     last_update: Instant,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 struct DiskStats {
     read_bytes: u64,
@@ -42,6 +43,7 @@ impl DiskIOMonitor {
         self.last_update = Instant::now();
     }
 
+    #[allow(dead_code)]
     pub fn get_disk_io(&self) -> Vec<DiskIOInfo> {
         // Placeholder for disk I/O info
         // Real implementation would calculate rates from /proc/diskstats
@@ -50,6 +52,7 @@ impl DiskIOMonitor {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DiskIOInfo {
     pub name: String,
     pub read_rate: f64,  // bytes/sec

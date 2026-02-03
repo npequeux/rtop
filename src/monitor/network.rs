@@ -79,7 +79,7 @@ impl NetworkMonitor {
 
     pub fn get_active_interface(&self) -> &str {
         // Get the first active interface
-        if let Some((name, data)) = self.networks.iter()
+        if let Some((name, _data)) = self.networks.iter()
             .find(|(_, data)| data.total_received() > 0 || data.total_transmitted() > 0) {
             name
         } else {

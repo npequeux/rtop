@@ -9,10 +9,12 @@ use std::path::PathBuf;
 
 /// Color gradient for smooth transitions
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ColorGradient {
     colors: Vec<Color>,
 }
 
+#[allow(dead_code)]
 impl ColorGradient {
     /// Create a gradient from start to end color
     pub fn new(start: Color, end: Color, steps: usize) -> Self {
@@ -179,6 +181,7 @@ impl Default for Theme {
     }
 }
 
+#[allow(dead_code)]
 impl Theme {
     /// Load theme from TOML file
     pub fn load_from_file(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
@@ -284,10 +287,13 @@ impl Theme {
 
 /// Theme manager to handle multiple themes
 pub struct ThemeManager {
+    #[allow(dead_code)]
     themes: HashMap<String, Theme>,
+    #[allow(dead_code)]
     current_theme: String,
 }
 
+#[allow(dead_code)]
 impl ThemeManager {
     pub fn new() -> Self {
         let mut themes = HashMap::new();

@@ -75,6 +75,7 @@ impl TempMonitor {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn get_max_temp(&self) -> f32 {
         self.components
             .iter()

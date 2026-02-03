@@ -13,9 +13,11 @@ pub use cpu::CpuMonitor;
 pub use memory::MemoryMonitor;
 pub use network::NetworkMonitor;
 pub use disk::DiskMonitor;
+#[allow(unused_imports)]
 pub use process::{ProcessMonitor, SortOrder, ProcessSignal, ProcessInfo};
 pub use temp::TempMonitor;
 pub use system::SystemMonitor;
 pub use battery::BatteryMonitor;
 pub use diskio::DiskIOMonitor;
+#[allow(unused_imports)]
 pub use gpu::{GpuMonitor, GpuInfo, GpuVendor};

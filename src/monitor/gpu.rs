@@ -248,26 +248,32 @@ impl GpuMonitor {
         self.gpus.len()
     }
     
+    #[allow(dead_code)]
     pub fn get_gpu(&self, index: usize) -> Option<&GpuInfo> {
         self.gpus.get(index)
     }
     
+    #[allow(dead_code)]
     pub fn get_all_gpus(&self) -> &[GpuInfo] {
         &self.gpus
     }
     
+    #[allow(dead_code)]
     pub fn get_utilization_history(&self, index: usize) -> Option<Vec<f64>> {
         self.utilization_history.get(index).map(|h| h.iter().copied().collect())
     }
     
+    #[allow(dead_code)]
     pub fn get_memory_history(&self, index: usize) -> Option<Vec<f64>> {
         self.memory_history.get(index).map(|h| h.iter().copied().collect())
     }
     
+    #[allow(dead_code)]
     pub fn vendor(&self) -> GpuVendor {
         self.vendor
     }
     
+    #[allow(dead_code)]
     pub fn vendor_string(&self) -> &str {
         match self.vendor {
             GpuVendor::Nvidia => "NVIDIA",
@@ -291,8 +297,8 @@ mod tests {
     #[test]
     fn test_gpu_monitor_creation() {
         let monitor = GpuMonitor::new();
-        // Should not panic
-        assert!(monitor.gpu_count() >= 0);
+        // Should not panic - gpu_count returns usize which is always >= 0
+        let _ = monitor.gpu_count();
     }
     
     #[test]

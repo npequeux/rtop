@@ -17,8 +17,8 @@ use crate::config::Config;
 use crate::export::*;
 use crate::monitor::*;
 use crate::utils::{format_bytes, COLORS};
-use crate::graphics::{GraphRenderer, GraphSymbol, MeterRenderer, BoxDrawer};
-use crate::theme::{ThemeManager, Theme};
+use crate::graphics::GraphSymbol;
+use crate::theme::ThemeManager;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ViewPage {
@@ -39,7 +39,7 @@ pub struct App {
     battery_monitor: BatteryMonitor,
     diskio_monitor: DiskIOMonitor,
     gpu_monitor: GpuMonitor,
-    theme_manager: ThemeManager,
+    _theme_manager: ThemeManager,
     last_update: Instant,
     config: Config,
     show_help: bool,
@@ -51,10 +51,10 @@ pub struct App {
     process_scroll: usize,
     process_selected: Option<usize>,
     show_kill_confirm: bool,
-    show_signal_menu: bool,
+    _show_signal_menu: bool,
     mouse_enabled: bool,
-    graph_symbol: GraphSymbol,
-    rounded_corners: bool,
+    _graph_symbol: GraphSymbol,
+    _rounded_corners: bool,
 }
 
 impl App {
@@ -70,7 +70,7 @@ impl App {
             battery_monitor: BatteryMonitor::new(),
             diskio_monitor: DiskIOMonitor::new(),
             gpu_monitor: GpuMonitor::new(),
-            theme_manager: ThemeManager::new(),
+            _theme_manager: ThemeManager::new(),
             last_update: Instant::now(),
             config,
             show_help: false,
@@ -82,10 +82,10 @@ impl App {
             process_scroll: 0,
             process_selected: None,
             show_kill_confirm: false,
-            show_signal_menu: false,
+            _show_signal_menu: false,
             mouse_enabled: true,
-            graph_symbol: GraphSymbol::Braille,
-            rounded_corners: true,
+            _graph_symbol: GraphSymbol::Braille,
+            _rounded_corners: true,
         }
     }
 
@@ -845,7 +845,7 @@ impl App {
 
         // Calculate max speed from current rates (keep track of peaks)
         let max_rate = rx_sec.max(tx_sec);
-        let max_rate_str = if max_rate > 0 {
+        let _max_rate_str = if max_rate > 0 {
             format_bytes(max_rate, false)
         } else {
             "N/A".to_string()
@@ -1161,198 +1161,6 @@ impl App {
                 frame.render_widget(paragraph, popup_area);
             }
         }
-    }
-
-    fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
-        let temp_data = self.temp_monitor.get_temperature_data();
-        
-        // If no temperature data available, show a message
-        if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
-            let text = vec![
-                Line::from(""),
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled("  ⚠ ", Style::default().fg(Color::Yellow)),
-                    Span::styled("No temperature sensors detected", Style::default().fg(Color::Gray)),
-                ]),
-                Line::from(""),
-                Line::from(vec![
-                    Span::raw("    Sensors may not be available on this system"),
-                ]),
-                Line::from(vec![
-                    Span::raw("    or may require additional kernel modules"),
-                ]),
-            ];
-
-            let paragraph = Paragraph::new(text).block(
-                Block::default()
-                    .title(vec![
-                        Span::styled("🌡 ", Style::default().fg(Color::DarkGray)),
-                        Span::styled("Temperature ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
-                        Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
-                    ])
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::DarkGray))
-                    .border_type(ratatui::widgets::BorderType::Rounded),
-            );
-
-            frame.render_widget(paragraph, area);
-            return;
-        }
-
-        // Split area: graph on left, list on right
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
-            .split(area);
-        
-        // Prepare datasets for each temperature sensor
-        let all_data: Vec<Vec<(f64, f64)>> = temp_data
-            .iter()
-            .map(|(_, _, history)| {
-                history
-                    .iter()
-                    .enumerate()
-                    .map(|(x, &y)| (x as f64, y as f64))
-                    .collect()
-            })
-            .collect();
-        
-        let datasets: Vec<Dataset> = temp_data
-            .iter()
-            .zip(all_data.iter())
-            .enumerate()
-            .map(|(_i, ((label, temp, _), data))| {
-                // Determine color based on temperature
-                let temp_color = if *temp > 80.0 {
-                    Color::Red
-                } else if *temp > 65.0 {
-                    Color::Yellow
-                } else if *temp > 50.0 {
-                    Color::Green
-                } else {
-                    Color::Cyan
-                };
-
-                // Shorten label if too long
-                let short_label = if label.len() > 20 {
-                    format!("{}.. {:.1}°C", &label[..17], temp)
-                } else {
-                    format!("{}: {:.1}°C", label, temp)
-                };
-
-                Dataset::default()
-                    .name(short_label)
-                    .marker(symbols::Marker::Braille)
-                    .graph_type(ratatui::widgets::GraphType::Line)
-                    .style(Style::default().fg(temp_color).add_modifier(Modifier::BOLD))
-                    .data(data)
-            })
-            .collect();
-
-        // Determine Y-axis bounds dynamically
-        let max_temp = self.temp_monitor.get_max_temp();
-        let y_max = ((max_temp / 10.0).ceil() * 10.0).max(100.0) as f64;
-
-        let chart = Chart::new(datasets)
-            .block(
-                Block::default()
-                    .title(vec![
-                        Span::styled("🌡 ", Style::default().fg(Color::Red)),
-                        Span::styled("Temperature History", Style::default().add_modifier(Modifier::BOLD)),
-                    ])
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan))
-                    .border_type(ratatui::widgets::BorderType::Rounded),
-            )
-            .x_axis(
-                Axis::default()
-                    .title(Span::styled("← Time", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
-                    .style(Style::default().fg(Color::Gray))
-                    .bounds([0.0, 60.0])
-                    .labels(vec![
-                        Span::styled("60", Style::default().fg(Color::DarkGray)),
-                        Span::styled("30", Style::default().fg(Color::DarkGray)),
-                        Span::styled("0", Style::default().fg(Color::White)),
-                    ]),
-            )
-            .y_axis(
-                Axis::default()
-                    .title(Span::styled("°C", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
-                    .style(Style::default().fg(Color::Gray))
-                    .bounds([0.0, y_max])
-                    .labels(vec![
-                        Span::styled("0", Style::default().fg(Color::Cyan)),
-                        Span::styled(format!("{:.0}", y_max / 2.0), Style::default().fg(Color::Yellow)),
-                        Span::styled(format!("{:.0}", y_max), Style::default().fg(Color::Red)),
-                    ]),
-            )
-            .legend_position(Some(ratatui::widgets::LegendPosition::TopLeft))
-            .hidden_legend_constraints((Constraint::Ratio(1, 5), Constraint::Ratio(1, 5)));
-
-        frame.render_widget(chart, chunks[0]);
-
-        // Draw temperature list on the right
-        let mut lines = vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(" Current Temperatures", Style::default().fg(Color::White).add_modifier(Modifier::BOLD).add_modifier(Modifier::UNDERLINED)),
-            ]),
-            Line::from(""),
-        ];
-
-        for (label, temp, _) in temp_data.iter() {
-            let temp_color = if *temp > 80.0 {
-                Color::Red
-            } else if *temp > 65.0 {
-                Color::Yellow
-            } else if *temp > 50.0 {
-                Color::Green
-            } else {
-                Color::Cyan
-            };
-
-            let icon = if *temp > 80.0 {
-                "🔥"
-            } else if *temp > 65.0 {
-                "🌡"
-            } else {
-                "❄"
-            };
-
-            // Truncate long labels
-            let display_label = if label.len() > 18 {
-                format!("{}...", &label[..15])
-            } else {
-                label.clone()
-            };
-
-            lines.push(Line::from(vec![
-                Span::styled(format!(" {} ", icon), Style::default().fg(temp_color)),
-                Span::styled(
-                    format!("{:.1}°C", temp),
-                    Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            lines.push(Line::from(vec![
-                Span::raw("   "),
-                Span::styled(display_label, Style::default().fg(Color::Gray)),
-            ]));
-            lines.push(Line::from(""));
-        }
-
-        let paragraph = Paragraph::new(lines).block(
-            Block::default()
-                .title(vec![
-                    Span::styled("📊 ", Style::default().fg(Color::Cyan)),
-                    Span::styled("Sensors", Style::default().add_modifier(Modifier::BOLD)),
-                ])
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .border_type(ratatui::widgets::BorderType::Rounded),
-        );
-
-        frame.render_widget(paragraph, chunks[1]);
     }
 
     fn draw_temperature_compact(&self, frame: &mut Frame, area: Rect) {

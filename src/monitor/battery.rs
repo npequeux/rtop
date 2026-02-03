@@ -38,6 +38,7 @@ impl BatteryMonitor {
         self.last_update = std::time::Instant::now();
     }
 
+    #[allow(dead_code)]
     pub fn has_battery(&self) -> bool {
         self.battery.is_some()
     }
@@ -74,13 +75,17 @@ impl BatteryMonitor {
 #[derive(Debug, Clone)]
 pub struct BatteryInfo {
     pub percentage: f32,
+    #[allow(dead_code)]
     pub state: String,
     pub is_charging: bool,
+    #[allow(dead_code)]
     pub time_remaining: Option<u64>,
+    #[allow(dead_code)]
     pub power_consumption: f32,
 }
 
 impl BatteryInfo {
+    #[allow(dead_code)]
     pub fn time_remaining_formatted(&self) -> String {
         match self.time_remaining {
             Some(secs) => {

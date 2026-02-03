@@ -2,6 +2,7 @@ use sysinfo::{System, ProcessRefreshKind, RefreshKind, ProcessesToUpdate, Signal
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum SortOrder {
     Pid,
     Cpu,
@@ -12,6 +13,7 @@ pub enum SortOrder {
 
 /// Process signal types (matching btop's comprehensive signal support)
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum ProcessSignal {
     Term,    // SIGTERM (15) - Termination signal
     Kill,    // SIGKILL (9) - Kill signal
@@ -25,6 +27,7 @@ pub enum ProcessSignal {
 }
 
 impl ProcessSignal {
+    #[allow(dead_code)]
     pub fn to_sysinfo_signal(&self) -> Signal {
         match self {
             ProcessSignal::Term => Signal::Term,
@@ -39,6 +42,7 @@ impl ProcessSignal {
         }
     }
     
+    #[allow(dead_code)]
     pub fn name(&self) -> &str {
         match self {
             ProcessSignal::Term => "TERM (15)",
@@ -53,6 +57,7 @@ impl ProcessSignal {
         }
     }
     
+    #[allow(dead_code)]
     pub fn description(&self) -> &str {
         match self {
             ProcessSignal::Term => "Graceful termination",
@@ -67,6 +72,7 @@ impl ProcessSignal {
         }
     }
     
+    #[allow(dead_code)]
     pub fn all_signals() -> Vec<ProcessSignal> {
         vec![
             ProcessSignal::Term,
@@ -90,9 +96,13 @@ pub struct ProcessInfo {
     pub cpu_usage: f32,
     pub memory: u64,
     pub user: String,
+    #[allow(dead_code)]
     pub state: String,
+    #[allow(dead_code)]
     pub threads: usize,
+    #[allow(dead_code)]
     pub read_bytes: u64,
+    #[allow(dead_code)]
     pub write_bytes: u64,
     pub children: Vec<u32>,
     pub tree_depth: usize,
@@ -138,6 +148,7 @@ impl ProcessMonitor {
         }
     }
     
+    #[allow(dead_code)]
     pub fn toggle_tree_view(&mut self) {
         self.tree_view = !self.tree_view;
         if self.tree_view {
@@ -145,6 +156,7 @@ impl ProcessMonitor {
         }
     }
     
+    #[allow(dead_code)]
     pub fn is_tree_view(&self) -> bool {
         self.tree_view
     }
@@ -280,6 +292,7 @@ impl ProcessMonitor {
     }
     
     /// Send a signal to a process
+    #[allow(dead_code)]
     pub fn send_signal(&self, pid: u32, signal: ProcessSignal) -> Result<bool, String> {
         let sysinfo_pid = Pid::from_u32(pid);
         
@@ -295,6 +308,7 @@ impl ProcessMonitor {
     }
     
     /// Kill a process (SIGTERM by default, SIGKILL if force)
+    #[allow(dead_code)]
     pub fn kill_process(&self, pid: u32, force: bool) -> Result<bool, String> {
         let signal = if force {
             ProcessSignal::Kill
@@ -304,6 +318,7 @@ impl ProcessMonitor {
         self.send_signal(pid, signal)
     }
     
+    #[allow(dead_code)]
     pub fn get_process_count(&self) -> usize {
         self.system.processes().len()
     }

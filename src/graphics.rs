@@ -1,9 +1,8 @@
 /// Advanced graphics and symbol rendering for rtop
 /// Inspired by btop++'s sophisticated graphing capabilities
 
-use std::collections::HashMap;
-
 /// Unicode symbols for drawing boxes and UI elements
+#[allow(dead_code)]
 pub mod symbols {
     pub const H_LINE: &str = "─";
     pub const V_LINE: &str = "│";
@@ -94,11 +93,14 @@ pub mod symbols {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GraphSymbol {
     Braille,
+    #[allow(dead_code)]
     Block,
+    #[allow(dead_code)]
     Tty,
 }
 
 impl GraphSymbol {
+    #[allow(dead_code)]
     pub fn get_symbols(&self, inverted: bool) -> &'static [&'static str; 25] {
         match (self, inverted) {
             (GraphSymbol::Braille, false) => &symbols::BRAILLE_UP,
@@ -112,6 +114,7 @@ impl GraphSymbol {
 }
 
 /// Advanced graph renderer with braille/unicode support
+#[allow(dead_code)]
 pub struct GraphRenderer {
     width: usize,
     height: usize,
@@ -120,6 +123,7 @@ pub struct GraphRenderer {
     no_zero: bool,
 }
 
+#[allow(dead_code)]
 impl GraphRenderer {
     pub fn new(width: usize, height: usize, symbol: GraphSymbol, inverted: bool) -> Self {
         Self {
@@ -145,7 +149,7 @@ impl GraphRenderer {
             0
         };
         
-        let mut last_value = if data_offset > 0 { data[data_offset - 1] } else { 0.0 };
+        let mut _last_value = if data_offset > 0 { data[data_offset - 1] } else { 0.0 };
         
         // Process data points in pairs for braille/block rendering
         for i in (data_offset..data_len).step_by(2) {
@@ -174,7 +178,7 @@ impl GraphRenderer {
                 output[h].push_str(symbols[symbol_idx]);
             }
             
-            last_value = v2;
+            _last_value = v2;
         }
         
         output
@@ -196,10 +200,12 @@ impl GraphRenderer {
 }
 
 /// Meter/gauge renderer with color gradients
+#[allow(dead_code)]
 pub struct MeterRenderer {
     width: usize,
 }
 
+#[allow(dead_code)]
 impl MeterRenderer {
     pub fn new(width: usize) -> Self {
         Self { width }
@@ -232,11 +238,13 @@ impl MeterRenderer {
 }
 
 /// Box drawing utilities
+#[allow(dead_code)]
 pub struct BoxDrawer {
     pub rounded_corners: bool,
     pub double_lines: bool,
 }
 
+#[allow(dead_code)]
 impl BoxDrawer {
     pub fn new(rounded_corners: bool) -> Self {
         Self {
@@ -296,7 +304,7 @@ mod tests {
     #[test]
     fn test_graph_renderer() {
         let renderer = GraphRenderer::new(20, 4, GraphSymbol::Braille, false);
-        let data: Vec<f64> = (0..40).map(|i| ((i as f64 * 2.5).sin() * 50.0 + 50.0)).collect();
+        let data: Vec<f64> = (0..40).map(|i| (i as f64 * 2.5).sin() * 50.0 + 50.0).collect();
         let graph = renderer.render(&data);
         assert_eq!(graph.len(), 4);
     }

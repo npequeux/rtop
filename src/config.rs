@@ -216,10 +216,12 @@ impl Config {
         Duration::from_millis(self.refresh_rates.cpu)
     }
 
+    #[allow(dead_code)]
     pub fn memory_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.memory)
     }
 
+    #[allow(dead_code)]
     pub fn network_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.network)
     }
@@ -232,6 +234,7 @@ impl Config {
         Duration::from_millis(self.refresh_rates.process)
     }
 
+    #[allow(dead_code)]
     pub fn temp_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.temp)
     }

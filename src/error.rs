@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum RtopError {
     #[error("Failed to initialize terminal: {0}")]
@@ -24,4 +25,5 @@ pub enum RtopError {
     InvalidInput(String),
 }
 
+#[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, RtopError>;

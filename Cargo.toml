@@ -37,3 +37,9 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Faster release builds for development (use: cargo build --profile release-fast)
+[profile.release-fast]
+inherits = "release"
+lto = "thin"        # Faster than "fat", still good optimization
+codegen-units = 16  # Allow parallel compilation

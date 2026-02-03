@@ -427,6 +427,7 @@ impl App {
     fn draw_overview_page(&self, frame: &mut Frame, area: Rect) {
         // Adjust layout based on temperature sensor availability
         let has_temp = self.temp_monitor.has_temperature_sensors();
+        let has_gpu = self.gpu_monitor.is_enabled() && self.gpu_monitor.gpu_count() > 0;
         
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -443,30 +444,71 @@ impl App {
         // Middle section: Memory and Swap on same graph
         self.draw_memory(frame, chunks[1]);
 
-        // Bottom section: Left column (Network, Disk, Gauges), Right column (Temperature if available, Processes)
+        // Bottom section: Left column (Network, Disk, GPU, Temperature), Right column (Processes)
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(chunks[2]);
 
-        // Left column: Network, Disk, and Temperature
-        if has_temp {
-            let left_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(40), Constraint::Percentage(35), Constraint::Percentage(25)])
-                .split(bottom_chunks[0]);
+        // Left column: Network, Disk, GPU, and Temperature
+        match (has_temp, has_gpu) {
+            (true, true) => {
+                // All components available
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(30),  // Network
+                        Constraint::Percentage(25),  // Disk
+                        Constraint::Percentage(25),  // GPU
+                        Constraint::Percentage(20),  // Temperature
+                    ])
+                    .split(bottom_chunks[0]);
 
-            self.draw_network(frame, left_chunks[0]);
-            self.draw_disk(frame, left_chunks[1]);
-            self.draw_temperature_compact(frame, left_chunks[2]);
-        } else {
-            let left_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(bottom_chunks[0]);
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_gpu(frame, left_chunks[2]);
+                self.draw_temperature_compact(frame, left_chunks[3]);
+            },
+            (false, true) => {
+                // GPU available, no temperature
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(40),  // Network
+                        Constraint::Percentage(30),  // Disk
+                        Constraint::Percentage(30),  // GPU
+                    ])
+                    .split(bottom_chunks[0]);
 
-            self.draw_network(frame, left_chunks[0]);
-            self.draw_disk(frame, left_chunks[1]);
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_gpu(frame, left_chunks[2]);
+            },
+            (true, false) => {
+                // Temperature available, no GPU
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(40),  // Network
+                        Constraint::Percentage(35),  // Disk
+                        Constraint::Percentage(25),  // Temperature
+                    ])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_temperature_compact(frame, left_chunks[2]);
+            },
+            (false, false) => {
+                // Neither available
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+            },
         }
 
         // Right column: Processes (full height)
@@ -1230,6 +1272,130 @@ impl App {
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        );
+
+        frame.render_widget(paragraph, area);
+    }
+
+    fn draw_gpu(&self, frame: &mut Frame, area: Rect) {
+        if !self.gpu_monitor.is_enabled() || self.gpu_monitor.gpu_count() == 0 {
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ⚠ ", Style::default().fg(Color::Yellow)),
+                    Span::styled("No GPU detected", Style::default().fg(Color::Gray)),
+                ]),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(
+                Block::default()
+                    .title(vec![
+                        Span::styled("🎮 ", Style::default().fg(Color::DarkGray)),
+                        Span::styled("GPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
+                        Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
+                    ])
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray))
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            );
+            
+            frame.render_widget(paragraph, area);
+            return;
+        }
+
+        let gpus = self.gpu_monitor.get_all_gpus();
+        let mut lines = vec![Line::from("")];
+
+        for gpu in gpus.iter() {
+            let util_color = if gpu.utilization > 85 {
+                Color::Rgb(224, 92, 92) // Red
+            } else if gpu.utilization > 60 {
+                Color::Rgb(245, 166, 35) // Orange
+            } else {
+                Color::Rgb(72, 151, 216) // Blue
+            };
+
+            let mem_percent = gpu.memory_percent();
+            let mem_color = if mem_percent > 85 {
+                Color::Rgb(224, 92, 92)
+            } else if mem_percent > 70 {
+                Color::Rgb(245, 166, 35)
+            } else {
+                Color::Rgb(144, 224, 163) // Green
+            };
+
+            // GPU name and utilization
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} ", gpu.index), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(&gpu.name, Style::default().fg(Color::Cyan)),
+            ]));
+
+            // Utilization bar
+            let util_bar_width = 30;
+            let filled = (gpu.utilization as usize * util_bar_width) / 100;
+            let util_bar = format!("[{}{}]", "█".repeat(filled), "░".repeat(util_bar_width - filled));
+            
+            lines.push(Line::from(vec![
+                Span::raw("   GPU: "),
+                Span::styled(format!("{:3}% ", gpu.utilization), Style::default().fg(util_color).add_modifier(Modifier::BOLD)),
+                Span::styled(util_bar, Style::default().fg(util_color)),
+            ]));
+
+            // Memory usage
+            let mem_used_gb = gpu.memory_used as f64 / 1024.0 / 1024.0 / 1024.0;
+            let mem_total_gb = gpu.memory_total as f64 / 1024.0 / 1024.0 / 1024.0;
+            let mem_filled = (mem_percent as usize * util_bar_width) / 100;
+            let mem_bar = format!("[{}{}]", "█".repeat(mem_filled), "░".repeat(util_bar_width - mem_filled));
+            
+            lines.push(Line::from(vec![
+                Span::raw("   MEM: "),
+                Span::styled(format!("{:3}% ", mem_percent), Style::default().fg(mem_color).add_modifier(Modifier::BOLD)),
+                Span::styled(mem_bar, Style::default().fg(mem_color)),
+                Span::styled(format!(" {:.1}/{:.1}GB", mem_used_gb, mem_total_gb), Style::default().fg(Color::Gray)),
+            ]));
+
+            // Additional info line
+            let mut info_spans = vec![Span::raw("   ")];
+            
+            if let Some(temp) = gpu.temperature {
+                let temp_color = if temp > 80 {
+                    Color::Red
+                } else if temp > 70 {
+                    Color::Yellow
+                } else {
+                    Color::Green
+                };
+                info_spans.push(Span::styled(format!("🌡 {}°C ", temp), Style::default().fg(temp_color)));
+            }
+            
+            if let Some(power) = gpu.power_usage {
+                info_spans.push(Span::styled(format!("⚡ {:.0}W ", power), Style::default().fg(Color::Yellow)));
+            }
+            
+            if let Some(clock) = gpu.clock_speed {
+                info_spans.push(Span::styled(format!("⏱ {}MHz ", clock), Style::default().fg(Color::Cyan)));
+            }
+            
+            if let Some(fan) = gpu.fan_speed {
+                info_spans.push(Span::styled(format!("🌀 {}% ", fan), Style::default().fg(Color::Blue)));
+            }
+            
+            if info_spans.len() > 1 {
+                lines.push(Line::from(info_spans));
+            }
+            
+            lines.push(Line::from(""));
+        }
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .title(vec![
+                    Span::styled("🎮 ", Style::default().fg(Color::Rgb(138, 113, 255))),
+                    Span::styled("GPU", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(138, 113, 255))),
+                ])
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(138, 113, 255)))
                 .border_type(ratatui::widgets::BorderType::Rounded),
         );
 

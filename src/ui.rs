@@ -518,11 +518,11 @@ impl App {
             },
         }
 
-        // Right column: Split horizontally into Processes (85%) and Temperature (15%)
+        // Right column: Split horizontally into Processes (80%) and Temperature (20%)
         if has_temp {
             let right_chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(85), Constraint::Percentage(15)])
+                .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
                 .split(bottom_chunks[1]);
 
             self.draw_processes(frame, right_chunks[0]);
@@ -1335,8 +1335,8 @@ impl App {
             };
 
             // Truncate long labels for narrow column
-            let display_label = if label.len() > 8 {
-                format!("{}.", &label[..7])
+            let display_label = if label.len() > 10 {
+                format!("{}.", &label[..9])
             } else {
                 label.clone()
             };
@@ -1344,13 +1344,9 @@ impl App {
             lines.push(Line::from(vec![
                 Span::styled(format!(" {} ", icon), Style::default().fg(temp_color)),
                 Span::styled(
-                    format!("{:3.0}°", temp),
+                    format!("{:3.0}° ", temp),
                     Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
                 ),
-            ]));
-            
-            lines.push(Line::from(vec![
-                Span::raw("  "),
                 Span::styled(display_label, Style::default().fg(Color::DarkGray)),
             ]));
         }

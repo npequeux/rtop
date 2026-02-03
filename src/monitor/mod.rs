@@ -8,6 +8,7 @@ pub mod system;
 pub mod battery;
 pub mod diskio;
 pub mod gpu;
+pub mod npu;
 
 pub use cpu::CpuMonitor;
 pub use memory::MemoryMonitor;
@@ -21,3 +22,5 @@ pub use battery::BatteryMonitor;
 pub use diskio::DiskIOMonitor;
 #[allow(unused_imports)]
 pub use gpu::{GpuMonitor, GpuInfo, GpuVendor};
+#[allow(unused_imports)]
+pub use npu::{NpuMonitor, NpuInfo, NpuVendor};

@@ -39,6 +39,7 @@ pub struct App {
     battery_monitor: BatteryMonitor,
     diskio_monitor: DiskIOMonitor,
     gpu_monitor: GpuMonitor,
+    npu_monitor: NpuMonitor,
     _theme_manager: ThemeManager,
     last_update: Instant,
     config: Config,
@@ -70,6 +71,7 @@ impl App {
             battery_monitor: BatteryMonitor::new(),
             diskio_monitor: DiskIOMonitor::new(),
             gpu_monitor: GpuMonitor::new(),
+            npu_monitor: NpuMonitor::new(),
             _theme_manager: ThemeManager::new(),
             last_update: Instant::now(),
             config,
@@ -123,6 +125,10 @@ impl App {
             // Update GPU if available
             if self.gpu_monitor.is_enabled() {
                 self.gpu_monitor.update();
+            }
+            
+            if self.npu_monitor.is_enabled() {
+                self.npu_monitor.update();
             }
             
             // Less frequent updates for disk and processes
@@ -428,6 +434,7 @@ impl App {
         // Adjust layout based on temperature sensor availability
         let has_temp = self.temp_monitor.has_temperature_sensors();
         let has_gpu = self.gpu_monitor.is_enabled() && self.gpu_monitor.gpu_count() > 0;
+        let has_npu = self.npu_monitor.is_enabled() && self.npu_monitor.npu_count() > 0;
         
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -444,16 +451,69 @@ impl App {
         // Middle section: Memory and Swap on same graph
         self.draw_memory(frame, chunks[1]);
 
-        // Bottom section: Left column (Network, Disk, GPU, Temperature), Right column (Processes)
+        // Bottom section: Left column (Network, Disk, GPU, NPU, Temperature), Right column (Processes)
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(chunks[2]);
 
-        // Left column: Network, Disk, GPU, and Temperature
-        match (has_temp, has_gpu) {
-            (true, true) => {
+        // Left column: Network, Disk, GPU, NPU, and Temperature
+        match (has_temp, has_gpu, has_npu) {
+            (true, true, true) => {
                 // All components available
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(25),  // Network
+                        Constraint::Percentage(20),  // Disk
+                        Constraint::Percentage(22),  // GPU
+                        Constraint::Percentage(18),  // NPU
+                        Constraint::Percentage(15),  // Temperature
+                    ])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_gpu(frame, left_chunks[2]);
+                self.draw_npu(frame, left_chunks[3]);
+                self.draw_temperature_compact(frame, left_chunks[4]);
+            },
+            (false, true, true) => {
+                // GPU and NPU available, no temperature
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(30),  // Network
+                        Constraint::Percentage(25),  // Disk
+                        Constraint::Percentage(25),  // GPU
+                        Constraint::Percentage(20),  // NPU
+                    ])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_gpu(frame, left_chunks[2]);
+                self.draw_npu(frame, left_chunks[3]);
+            },
+            (true, false, true) => {
+                // NPU and Temperature available, no GPU
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(35),  // Network
+                        Constraint::Percentage(30),  // Disk
+                        Constraint::Percentage(20),  // NPU
+                        Constraint::Percentage(15),  // Temperature
+                    ])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_npu(frame, left_chunks[2]);
+                self.draw_temperature_compact(frame, left_chunks[3]);
+            },
+            (true, true, false) => {
+                // GPU and Temperature available, no NPU
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -469,8 +529,23 @@ impl App {
                 self.draw_gpu(frame, left_chunks[2]);
                 self.draw_temperature_compact(frame, left_chunks[3]);
             },
-            (false, true) => {
-                // GPU available, no temperature
+            (false, false, true) => {
+                // Only NPU available
+                let left_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(40),  // Network
+                        Constraint::Percentage(35),  // Disk
+                        Constraint::Percentage(25),  // NPU
+                    ])
+                    .split(bottom_chunks[0]);
+
+                self.draw_network(frame, left_chunks[0]);
+                self.draw_disk(frame, left_chunks[1]);
+                self.draw_npu(frame, left_chunks[2]);
+            },
+            (false, true, false) => {
+                // GPU available, no temperature or NPU
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -484,8 +559,8 @@ impl App {
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_gpu(frame, left_chunks[2]);
             },
-            (true, false) => {
-                // Temperature available, no GPU
+            (true, false, false) => {
+                // Temperature available, no GPU or NPU
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -499,7 +574,7 @@ impl App {
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_temperature_compact(frame, left_chunks[2]);
             },
-            (false, false) => {
+            (false, false, false) => {
                 // Neither available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -569,6 +644,12 @@ impl App {
             String::new()
         };
 
+        let npu_indicator = if self.npu_monitor.is_enabled() {
+            format!(" 🧠 {}NPU ", self.npu_monitor.npu_count())
+        } else {
+            String::new()
+        };
+
         let title = vec![
             Line::from(vec![
                 Span::styled(" ⚡ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -576,6 +657,7 @@ impl App {
                 Span::styled(" v3.0", Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::ITALIC)),
                 Span::raw(" "),
                 Span::styled(&gpu_indicator, Style::default().fg(Color::Green)),
+                Span::styled(&npu_indicator, Style::default().fg(Color::Rgb(138, 113, 255))),
                 Span::raw(" │ "),
                 Span::styled("◆ ", Style::default().fg(Color::Magenta)),
                 Span::styled(page_indicator, Style::default().fg(Color::Rgb(255, 200, 100)).add_modifier(Modifier::BOLD)),
@@ -1393,6 +1475,96 @@ impl App {
                 .title(vec![
                     Span::styled("🎮 ", Style::default().fg(Color::Rgb(138, 113, 255))),
                     Span::styled("GPU", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(138, 113, 255))),
+                ])
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(138, 113, 255)))
+                .border_type(ratatui::widgets::BorderType::Rounded),
+        );
+
+        frame.render_widget(paragraph, area);
+    }
+
+    fn draw_npu(&self, frame: &mut Frame, area: Rect) {
+        if !self.npu_monitor.is_enabled() || self.npu_monitor.npu_count() == 0 {
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ⚠ ", Style::default().fg(Color::Yellow)),
+                    Span::styled("No NPU detected", Style::default().fg(Color::Gray)),
+                ]),
+            ];
+            
+            let paragraph = Paragraph::new(text).block(
+                Block::default()
+                    .title(vec![
+                        Span::styled("🧠 ", Style::default().fg(Color::DarkGray)),
+                        Span::styled("NPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
+                        Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
+                    ])
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray))
+                    .border_type(ratatui::widgets::BorderType::Rounded),
+            );
+            
+            frame.render_widget(paragraph, area);
+            return;
+        }
+
+        let npus = self.npu_monitor.get_all_npus();
+        let mut lines = vec![Line::from("")];
+
+        for npu in npus.iter() {
+            let util_color = if npu.utilization > 85 {
+                Color::Rgb(224, 92, 92) // Red
+            } else if npu.utilization > 60 {
+                Color::Rgb(245, 166, 35) // Orange
+            } else {
+                Color::Rgb(138, 113, 255) // Purple
+            };
+
+            // NPU name and vendor
+            lines.push(Line::from(vec![
+                Span::styled("🧠 ", Style::default().fg(Color::Rgb(138, 113, 255))),
+                Span::styled(&npu.name, Style::default().fg(Color::Rgb(180, 160, 255)).add_modifier(Modifier::BOLD)),
+            ]));
+
+            // Utilization bar
+            let util_bar_width = 30;
+            let filled = (npu.utilization as usize * util_bar_width) / 100;
+            let util_bar = format!("[{}{}]", "█".repeat(filled), "░".repeat(util_bar_width - filled));
+            
+            lines.push(Line::from(vec![
+                Span::raw("   AI:  "),
+                Span::styled(format!("{:3}% ", npu.utilization), Style::default().fg(util_color).add_modifier(Modifier::BOLD)),
+                Span::styled(util_bar, Style::default().fg(util_color)),
+            ]));
+
+            // Additional info line
+            let mut info_spans = vec![Span::raw("   ")];
+            
+            if let Some(tops) = npu.tops {
+                info_spans.push(Span::styled(format!("⚡ {} TOPS ", tops), Style::default().fg(Color::Cyan)));
+            }
+            
+            if let Some(power) = npu.power_usage {
+                info_spans.push(Span::styled(format!("🔋 {:.1}W ", power), Style::default().fg(Color::Yellow)));
+            }
+            
+            info_spans.push(Span::styled(format!("({} {})", npu.vendor, self.npu_monitor.vendor_string()), Style::default().fg(Color::DarkGray)));
+            
+            if info_spans.len() > 1 {
+                lines.push(Line::from(info_spans));
+            }
+            
+            lines.push(Line::from(""));
+        }
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .title(vec![
+                    Span::styled("🧠 ", Style::default().fg(Color::Rgb(138, 113, 255))),
+                    Span::styled("NPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(138, 113, 255))),
+                    Span::styled("(AI Accelerator)", Style::default().fg(Color::Rgb(100, 80, 150)).add_modifier(Modifier::ITALIC)),
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(138, 113, 255)))

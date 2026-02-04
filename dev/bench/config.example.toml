@@ -1,0 +1,97 @@
+# rtop Configuration File
+# Location: ~/.config/rtop/config.toml
+# Generate this file with: rtop --generate-config
+
+# ============================================
+# Refresh Rates (in milliseconds)
+# ============================================
+[refresh_rates]
+# How often to update CPU monitoring (default: 1000ms)
+cpu = 1000
+
+# How often to update memory monitoring (default: 1000ms)
+memory = 1000
+
+# How often to update network statistics (default: 1000ms)
+network = 1000
+
+# How often to update disk information (default: 2000ms)
+# Less frequent since disk changes are slower
+disk = 2000
+
+# How often to refresh process list (default: 2000ms)
+# Less frequent to reduce system load
+process = 2000
+
+# How often to update temperature sensors (default: 1000ms)
+temp = 1000
+
+# ============================================
+# Color Configuration
+# ============================================
+[colors]
+# Color theme: "cyan", "green", "blue", "custom"
+theme = "cyan"
+
+# Enable/disable color output
+enable_colors = true
+
+# ============================================
+# Display Options
+# ============================================
+[display]
+# Show temperature monitoring panel (if sensors available)
+show_temperature = true
+
+# Show network monitoring panel
+show_network = true
+
+# Show disk usage panel
+show_disk = true
+
+# Maximum number of processes to display in the table
+max_processes = 20
+
+# Show kernel/system processes (PID < 100)
+show_kernel_processes = false
+
+# Show rtop itself in the process list
+show_self = true
+
+# ============================================
+# Alert Thresholds
+# ============================================
+[thresholds]
+# CPU usage warning threshold (yellow color, percentage)
+cpu_warning = 60.0
+
+# CPU usage critical threshold (red color, percentage)
+cpu_critical = 80.0
+
+# Memory usage warning threshold (percentage)
+memory_warning = 70.0
+
+# Memory usage critical threshold (percentage)
+memory_critical = 90.0
+
+# Temperature warning threshold (Celsius)
+temp_warning = 65.0
+
+# Temperature critical threshold (Celsius)
+temp_critical = 80.0
+
+# Disk space warning threshold (percentage used)
+disk_warning = 80.0
+
+# ============================================
+# Export & Logging Options
+# ============================================
+[export]
+# Enable automatic logging of metrics to file
+enable_logging = false
+
+# Log file path (requires enable_logging = true)
+# log_path = "/var/log/rtop/metrics.log"
+
+# Interval for logging metrics (milliseconds)
+log_interval = 5000

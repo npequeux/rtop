@@ -263,3 +263,99 @@ impl Config {
         Duration::from_millis(self.refresh_rates.temp)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = Config::default();
+        assert_eq!(config.refresh_rates.cpu, 1000);
+        assert_eq!(config.refresh_rates.memory, 1000);
+        assert_eq!(config.refresh_rates.network, 1000);
+        assert_eq!(config.refresh_rates.disk, 2000);
+        assert_eq!(config.refresh_rates.process, 2000);
+        assert_eq!(config.colors.theme, "cyan");
+        assert!(config.colors.enable_colors);
+        assert_eq!(config.display.max_processes, 20);
+    }
+
+    #[test]
+    fn test_refresh_durations() {
+        let config = Config::default();
+        assert_eq!(config.cpu_refresh_duration(), Duration::from_millis(1000));
+        assert_eq!(config.memory_refresh_duration(), Duration::from_millis(1000));
+        assert_eq!(config.disk_refresh_duration(), Duration::from_millis(2000));
+        assert_eq!(config.process_refresh_duration(), Duration::from_millis(2000));
+    }
+
+    #[test]
+    fn test_threshold_defaults() {
+        let thresholds = Thresholds::default();
+        assert_eq!(thresholds.cpu_warning, 60.0);
+        assert_eq!(thresholds.cpu_critical, 80.0);
+        assert_eq!(thresholds.memory_warning, 70.0);
+        assert_eq!(thresholds.memory_critical, 90.0);
+        assert_eq!(thresholds.temp_warning, 65.0);
+        assert_eq!(thresholds.temp_critical, 80.0);
+        assert_eq!(thresholds.disk_warning, 80.0);
+    }
+
+    #[test]
+    fn test_display_config_defaults() {
+        let display = DisplayConfig::default();
+        assert!(display.show_temperature);
+        assert!(display.show_network);
+        assert!(display.show_disk);
+        assert!(display.show_self);
+        assert!(!display.show_kernel_processes);
+        assert_eq!(display.max_processes, 20);
+    }
+
+    #[test]
+    fn test_config_serialization() {
+        let config = Config::default();
+        let toml_string = toml::to_string(&config).unwrap();
+        assert!(toml_string.contains("cpu"));
+        assert!(toml_string.contains("memory"));
+        assert!(toml_string.contains("theme"));
+    }
+
+    #[test]
+    fn test_config_deserialization() {
+        let toml_str = r#"
+            [refresh_rates]
+            cpu = 2000
+            memory = 1500
+            
+            [colors]
+            theme = "blue"
+            enable_colors = false
+            
+            [display]
+            max_processes = 30
+        "#;
+        
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.refresh_rates.cpu, 2000);
+        assert_eq!(config.refresh_rates.memory, 1500);
+        assert_eq!(config.colors.theme, "blue");
+        assert!(!config.colors.enable_colors);
+        assert_eq!(config.display.max_processes, 30);
+    }
+
+    #[test]
+    fn test_partial_config() {
+        let toml_str = r#"
+            [colors]
+            theme = "red"
+        "#;
+        
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.colors.theme, "red");
+        // Other values should use defaults
+        assert_eq!(config.refresh_rates.cpu, 1000);
+        assert_eq!(config.display.max_processes, 20);
+    }
+}

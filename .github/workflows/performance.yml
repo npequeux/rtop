@@ -11,6 +11,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -68,6 +72,19 @@ jobs:
           timeout 5s /usr/bin/time -v target/release/rtop 2>&1 | grep -E "Maximum resident|Average resident" || true
           echo "\`\`\`" >> metrics.md
 
+      - name: Extract metrics to JSON
+        run: |
+          binary_size=$(stat -c%s target/release/rtop)
+          build_time=$(grep "Finished" build.log | grep -oP '\d+\.\d+s' | head -1 | sed 's/s//')
+          
+          cat > metrics.json << EOF
+          [
+            {"name": "Binary Size (bytes)", "unit": "bytes", "value": $binary_size},
+            {"name": "Build Time", "unit": "seconds", "value": ${build_time:-0}}
+          ]
+          EOF
+          cat metrics.json
+
       - name: Display metrics
         run: cat metrics.md
 
@@ -76,6 +93,20 @@ jobs:
         with:
           name: performance-metrics
           path: metrics.md
+
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/master'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Performance Metrics
+          tool: 'customSmallerIsBetter'
+          output-file-path: metrics.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '200%'
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: '@npequeux'
 
       - name: Comment PR with metrics
         if: github.event_name == 'pull_request'
@@ -88,5 +119,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: metrics
+              body: `## 📊 Performance Metrics\n\n${metrics}\n\n[View historical trends](https://npequeux.github.io/rtop/dev/bench/)`
             });

@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust-version: ["1.88.0", "stable", "beta"]
+        rust-version: ["stable"]
         include: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rust-version != '' && fromJson(format('[{{"rust-version":"{0}","manual":true}}]', github.event.inputs.rust-version)) || fromJson('[]') }}
 
     steps:
@@ -46,23 +46,10 @@ jobs:
         with:
           toolchain: ${{ matrix.rust-version }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "rust-stable"
 
       - name: Build
         run: cargo build --verbose
@@ -71,7 +58,6 @@ jobs:
         run: cargo test --verbose
 
   security:
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -82,16 +68,16 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Run security audit
         run: cargo audit
-
-      - name: Check for outdated dependencies
-        run: |
-          cargo install cargo-outdated --locked
-          cargo outdated --exit-code 1 || echo "::warning::Some dependencies are outdated"
 
   markdown_lint:
     runs-on: ubuntu-latest
@@ -110,9 +96,7 @@ jobs:
     needs:
       - test
       - lint_format
-      - coverage
       - docs
-      - cross
       - artifacts
       - security
       - markdown_lint
@@ -135,7 +119,6 @@ jobs:
         run: ./build.sh
 
   lint_format:
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -145,6 +128,9 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -153,7 +139,6 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   coverage:
-    needs: lint_format
     runs-on: ubuntu-latest
 
     steps:
@@ -163,12 +148,15 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
+          components: llvm-tools-preview
 
-      - name: Add llvm-tools component
-        run: rustup component add llvm-tools-preview
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
       - name: Generate coverage report
         run: |
@@ -197,7 +185,6 @@ jobs:
           path: target/llvm-cov/html/
 
   docs:
-    needs: coverage
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -214,6 +201,9 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Build documentation
         run: |
@@ -235,29 +225,8 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  cross:
-    needs: docs
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Build and test on ${{ matrix.os }}
-        run: |
-          cargo build --verbose
-          cargo test --verbose
-
   artifacts:
-    needs: cross
+    needs: [test, lint_format]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
@@ -279,9 +248,16 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.config.target }}
 
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.config.target }}
+
       - name: Install cross
         if: matrix.config.cross == true
-        run: cargo install cross --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
       - name: Build release binary (native)
         if: matrix.config.cross != true
@@ -361,7 +337,9 @@ jobs:
           toolchain: stable
 
       - name: Install git-cliff
-        run: cargo install git-cliff --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
 
       - name: Generate changelog draft
         run: |

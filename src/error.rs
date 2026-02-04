@@ -67,10 +67,17 @@ mod tests {
 
     #[test]
     fn test_result_type() {
-        let success: Result<i32> = Ok(42);
+        fn success_fn() -> Result<i32> {
+            Ok(42)
+        }
+        fn failure_fn() -> Result<i32> {
+            Err(RtopError::InvalidInput("test".to_string()))
+        }
+
+        let success = success_fn();
         assert_eq!(success.unwrap(), 42);
 
-        let failure: Result<i32> = Err(RtopError::InvalidInput("test".to_string()));
+        let failure = failure_fn();
         assert!(failure.is_err());
     }
 }

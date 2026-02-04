@@ -96,10 +96,10 @@ impl Metrics {
 
     pub fn export_csv<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         let mut file = File::create(path)?;
-        
+
         // Write header
         writeln!(file, "timestamp,cpu_avg,memory_percent,swap_percent,network_rx_rate,network_tx_rate,uptime,load_1m,load_5m,load_15m")?;
-        
+
         // Write data
         writeln!(
             file,
@@ -115,7 +115,7 @@ impl Metrics {
             self.system.load_average.1,
             self.system.load_average.2,
         )?;
-        
+
         Ok(())
     }
 }

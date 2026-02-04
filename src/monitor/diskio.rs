@@ -1,6 +1,6 @@
-use sysinfo::Disks;
 use std::collections::HashMap;
 use std::time::Instant;
+use sysinfo::Disks;
 
 pub struct DiskIOMonitor {
     disks: Disks,
@@ -32,14 +32,14 @@ impl DiskIOMonitor {
     pub fn update(&mut self) {
         self.disks.refresh_list();
         self.disks.refresh();
-        
+
         // Update stats
         self.last_stats = self.current_stats.clone();
         self.current_stats.clear();
 
         // Note: sysinfo doesn't provide I/O stats directly
         // This is a placeholder - real implementation would need to read from /proc/diskstats on Linux
-        
+
         self.last_update = Instant::now();
     }
 

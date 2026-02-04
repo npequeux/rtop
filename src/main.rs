@@ -2,11 +2,11 @@ mod cli;
 mod config;
 mod error;
 mod export;
+mod graphics;
 mod monitor;
+mod theme;
 mod ui;
 mod utils;
-mod graphics;
-mod theme;
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -33,9 +33,7 @@ fn main() -> anyhow::Result<()> {
             2 => tracing::Level::DEBUG,
             _ => tracing::Level::TRACE,
         };
-        tracing_subscriber::fmt()
-            .with_max_level(level)
-            .init();
+        tracing_subscriber::fmt().with_max_level(level).init();
     }
 
     // Handle subcommands
@@ -88,7 +86,7 @@ fn main() -> anyhow::Result<()> {
 
     // Create app state
     let mut app = ui::App::new(config.clone());
-    
+
     // Apply CLI overrides
     if cli.minimal {
         app.set_minimal_mode(true);
@@ -135,14 +133,10 @@ fn handle_command(command: Commands) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn export_and_exit(
-    path: &std::path::Path,
-    format: &str,
-    config: &Config,
-) -> anyhow::Result<()> {
+fn export_and_exit(path: &std::path::Path, format: &str, config: &Config) -> anyhow::Result<()> {
     let mut app = ui::App::new(config.clone());
     app.update();
-    
+
     // Give monitors time to collect data
     std::thread::sleep(Duration::from_millis(500));
     app.update();

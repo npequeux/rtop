@@ -58,16 +58,16 @@ pub struct Cli {
 pub enum Commands {
     /// Show current configuration
     ShowConfig,
-    
+
     /// Generate default configuration file
     InitConfig,
-    
+
     /// Export current metrics and exit
     Export {
         /// Output file path
         #[arg(short, long)]
         output: PathBuf,
-        
+
         /// Format (json, csv)
         #[arg(short, long, default_value = "json")]
         format: String,
@@ -77,7 +77,7 @@ pub enum Commands {
 impl Cli {
     pub fn parse_duration(duration: &str) -> anyhow::Result<std::time::Duration> {
         let duration = duration.trim();
-        
+
         if duration.ends_with('s') {
             let secs: u64 = duration.trim_end_matches('s').parse()?;
             Ok(std::time::Duration::from_secs(secs))

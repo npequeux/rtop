@@ -86,24 +86,60 @@ pub struct ExportConfig {
 }
 
 // Default value functions
-fn default_cpu_refresh() -> u64 { 1000 }
-fn default_memory_refresh() -> u64 { 1000 }
-fn default_network_refresh() -> u64 { 1000 }
-fn default_disk_refresh() -> u64 { 2000 }
-fn default_process_refresh() -> u64 { 2000 }
-fn default_temp_refresh() -> u64 { 1000 }
-fn default_theme() -> String { "cyan".to_string() }
-fn default_true() -> bool { true }
-fn default_false() -> bool { false }
-fn default_max_processes() -> usize { 20 }
-fn default_cpu_warning() -> f32 { 60.0 }
-fn default_cpu_critical() -> f32 { 80.0 }
-fn default_memory_warning() -> f32 { 70.0 }
-fn default_memory_critical() -> f32 { 90.0 }
-fn default_temp_warning() -> f32 { 65.0 }
-fn default_temp_critical() -> f32 { 80.0 }
-fn default_disk_warning() -> f32 { 80.0 }
-fn default_log_interval() -> u64 { 5000 }
+fn default_cpu_refresh() -> u64 {
+    1000
+}
+fn default_memory_refresh() -> u64 {
+    1000
+}
+fn default_network_refresh() -> u64 {
+    1000
+}
+fn default_disk_refresh() -> u64 {
+    2000
+}
+fn default_process_refresh() -> u64 {
+    2000
+}
+fn default_temp_refresh() -> u64 {
+    1000
+}
+fn default_theme() -> String {
+    "cyan".to_string()
+}
+fn default_true() -> bool {
+    true
+}
+fn default_false() -> bool {
+    false
+}
+fn default_max_processes() -> usize {
+    20
+}
+fn default_cpu_warning() -> f32 {
+    60.0
+}
+fn default_cpu_critical() -> f32 {
+    80.0
+}
+fn default_memory_warning() -> f32 {
+    70.0
+}
+fn default_memory_critical() -> f32 {
+    90.0
+}
+fn default_temp_warning() -> f32 {
+    65.0
+}
+fn default_temp_critical() -> f32 {
+    80.0
+}
+fn default_disk_warning() -> f32 {
+    80.0
+}
+fn default_log_interval() -> u64 {
+    5000
+}
 
 impl Default for RefreshRates {
     fn default() -> Self {
@@ -179,7 +215,7 @@ impl Default for Config {
 impl Config {
     pub fn load() -> anyhow::Result<Self> {
         let config_path = Self::config_path()?;
-        
+
         if config_path.exists() {
             let contents = fs::read_to_string(&config_path)?;
             let config: Config = toml::from_str(&contents)?;
@@ -191,11 +227,11 @@ impl Config {
 
     pub fn save(&self) -> anyhow::Result<()> {
         let config_path = Self::config_path()?;
-        
+
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        
+
         let contents = toml::to_string_pretty(self)?;
         fs::write(config_path, contents)?;
         Ok(())

@@ -1,12 +1,12 @@
-use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{
+    self, Event, KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::{Line, Span},
-    widgets::{
-        Axis, Block, Borders, Chart, Dataset, Paragraph, Row, Table,
-    },
+    widgets::{Axis, Block, Borders, Chart, Dataset, Paragraph, Row, Table},
     Frame,
 };
 use regex::Regex;
@@ -15,10 +15,10 @@ use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::export::*;
-use crate::monitor::*;
-use crate::utils::{format_bytes, COLORS};
 use crate::graphics::GraphSymbol;
+use crate::monitor::*;
 use crate::theme::ThemeManager;
+use crate::utils::{format_bytes, COLORS};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ViewPage {
@@ -42,6 +42,8 @@ pub struct App {
     npu_monitor: NpuMonitor,
     _theme_manager: ThemeManager,
     last_update: Instant,
+    last_disk_update: Instant,
+    last_process_update: Instant,
     config: Config,
     show_help: bool,
     paused: bool,
@@ -74,6 +76,8 @@ impl App {
             npu_monitor: NpuMonitor::new(),
             _theme_manager: ThemeManager::new(),
             last_update: Instant::now(),
+            last_disk_update: Instant::now(),
+            last_process_update: Instant::now(),
             config,
             show_help: false,
             paused: false,
@@ -111,7 +115,7 @@ impl App {
 
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_update);
-        
+
         if elapsed >= self.config.cpu_refresh_duration() {
             self.cpu_monitor.update();
             self.memory_monitor.update();
@@ -121,25 +125,28 @@ impl App {
             self.system_monitor.update();
             self.battery_monitor.update();
             self.diskio_monitor.update();
-            
+
             // Update GPU if available
             if self.gpu_monitor.is_enabled() {
                 self.gpu_monitor.update();
             }
-            
+
             if self.npu_monitor.is_enabled() {
                 self.npu_monitor.update();
             }
-            
-            // Less frequent updates for disk and processes
-            if elapsed >= self.config.disk_refresh_duration() {
-                self.disk_monitor.update();
-            }
-            if elapsed >= self.config.process_refresh_duration() {
-                self.process_monitor.update();
-            }
-            
+
             self.last_update = now;
+        }
+
+        // Less frequent updates handled independently to honor configured intervals
+        if now.duration_since(self.last_disk_update) >= self.config.disk_refresh_duration() {
+            self.disk_monitor.update();
+            self.last_disk_update = now;
+        }
+
+        if now.duration_since(self.last_process_update) >= self.config.process_refresh_duration() {
+            self.process_monitor.update();
+            self.last_process_update = now;
         }
     }
 
@@ -226,8 +233,8 @@ impl App {
                         }
                         KeyCode::PageDown => {
                             let max_processes = self.process_monitor.get_sorted_processes().len();
-                            self.process_scroll = (self.process_scroll + 10)
-                                .min(max_processes.saturating_sub(20));
+                            self.process_scroll =
+                                (self.process_scroll + 10).min(max_processes.saturating_sub(20));
                         }
                         KeyCode::Home => {
                             self.process_scroll = 0;
@@ -237,7 +244,9 @@ impl App {
                             self.process_scroll = max_processes.saturating_sub(20);
                         }
                         KeyCode::Enter => {
-                            if self.process_scroll < self.process_monitor.get_sorted_processes().len() {
+                            if self.process_scroll
+                                < self.process_monitor.get_sorted_processes().len()
+                            {
                                 self.process_selected = Some(self.process_scroll);
                             }
                         }
@@ -306,7 +315,7 @@ impl App {
 
     pub fn collect_metrics(&self) -> Metrics {
         let timestamp = chrono::Local::now().to_rfc3339();
-        
+
         let cpu_data = self.cpu_monitor.get_all_cpu_data();
         let cores: Vec<CoreMetric> = cpu_data
             .iter()
@@ -397,16 +406,15 @@ impl App {
     pub fn draw(&self, frame: &mut Frame) {
         // Apply blue background to entire frame
         let full_area = frame.area();
-        let background = Block::default()
-            .style(Style::default().bg(Color::Rgb(10, 20, 40)));
+        let background = Block::default().style(Style::default().bg(Color::Rgb(10, 20, 40)));
         frame.render_widget(background, full_area);
 
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),    // Header
-                Constraint::Min(0),       // Content
-                Constraint::Length(2),    // Footer/Status bar
+                Constraint::Length(3), // Header
+                Constraint::Min(0),    // Content
+                Constraint::Length(2), // Footer/Status bar
             ])
             .split(frame.area());
 
@@ -435,13 +443,13 @@ impl App {
         let has_temp = self.temp_monitor.has_temperature_sensors();
         let has_gpu = self.gpu_monitor.is_enabled() && self.gpu_monitor.gpu_count() > 0;
         let has_npu = self.npu_monitor.is_enabled() && self.npu_monitor.npu_count() > 0;
-        
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(22),  // CPU
-                Constraint::Percentage(22),  // Memory & Swap combined
-                Constraint::Percentage(56),  // Bottom section
+                Constraint::Percentage(22), // CPU
+                Constraint::Percentage(22), // Memory & Swap combined
+                Constraint::Percentage(56), // Bottom section
             ])
             .split(area);
 
@@ -464,10 +472,10 @@ impl App {
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Percentage(30),  // Network
-                        Constraint::Percentage(25),  // Disk
-                        Constraint::Percentage(25),  // GPU
-                        Constraint::Percentage(20),  // NPU
+                        Constraint::Percentage(30), // Network
+                        Constraint::Percentage(25), // Disk
+                        Constraint::Percentage(25), // GPU
+                        Constraint::Percentage(20), // NPU
                     ])
                     .split(bottom_chunks[0]);
 
@@ -475,37 +483,37 @@ impl App {
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_gpu(frame, left_chunks[2]);
                 self.draw_npu(frame, left_chunks[3]);
-            },
+            }
             (false, true) => {
                 // Only NPU available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Percentage(40),  // Network
-                        Constraint::Percentage(35),  // Disk
-                        Constraint::Percentage(25),  // NPU
+                        Constraint::Percentage(40), // Network
+                        Constraint::Percentage(35), // Disk
+                        Constraint::Percentage(25), // NPU
                     ])
                     .split(bottom_chunks[0]);
 
                 self.draw_network(frame, left_chunks[0]);
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_npu(frame, left_chunks[2]);
-            },
+            }
             (true, false) => {
                 // Only GPU available
                 let left_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Percentage(40),  // Network
-                        Constraint::Percentage(30),  // Disk
-                        Constraint::Percentage(30),  // GPU
+                        Constraint::Percentage(40), // Network
+                        Constraint::Percentage(30), // Disk
+                        Constraint::Percentage(30), // GPU
                     ])
                     .split(bottom_chunks[0]);
 
                 self.draw_network(frame, left_chunks[0]);
                 self.draw_disk(frame, left_chunks[1]);
                 self.draw_gpu(frame, left_chunks[2]);
-            },
+            }
             (false, false) => {
                 // Neither GPU nor NPU
                 let left_chunks = Layout::default()
@@ -515,7 +523,7 @@ impl App {
 
                 self.draw_network(frame, left_chunks[0]);
                 self.draw_disk(frame, left_chunks[1]);
-            },
+            }
         }
 
         // Right column: Split horizontally into Processes (80%) and Temperature (20%)
@@ -543,8 +551,8 @@ impl App {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(50),  // Network stats
-                Constraint::Percentage(50),  // CPU (shows network impact)
+                Constraint::Percentage(50), // Network stats
+                Constraint::Percentage(50), // CPU (shows network impact)
             ])
             .split(area);
 
@@ -557,8 +565,8 @@ impl App {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(50),  // Disk usage
-                Constraint::Percentage(50),  // Memory (storage related)
+                Constraint::Percentage(50), // Disk usage
+                Constraint::Percentage(50), // Memory (storage related)
             ])
             .split(area);
 
@@ -593,26 +601,57 @@ impl App {
             String::new()
         };
 
-        let title = vec![
-            Line::from(vec![
-                Span::styled(" ⚡ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("rtop", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled(" v3.0", Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::ITALIC)),
-                Span::raw(" "),
-                Span::styled(&gpu_indicator, Style::default().fg(Color::Green)),
-                Span::styled(&npu_indicator, Style::default().fg(Color::Rgb(138, 113, 255))),
-                Span::raw(" │ "),
-                Span::styled("◆ ", Style::default().fg(Color::Magenta)),
-                Span::styled(page_indicator, Style::default().fg(Color::Rgb(255, 200, 100)).add_modifier(Modifier::BOLD)),
-                Span::raw(" │ "),
-                Span::styled("F2-F5", Style::default().fg(Color::Cyan)),
-                Span::raw(": Pages │ "),
-                Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(": Help │ "),
-                Span::styled("g", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::raw(": GPU"),
-            ]),
-        ];
+        let title = vec![Line::from(vec![
+            Span::styled(
+                " ⚡ ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                "rtop",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                " v3.0",
+                Style::default()
+                    .fg(Color::Rgb(100, 200, 255))
+                    .add_modifier(Modifier::ITALIC),
+            ),
+            Span::raw(" "),
+            Span::styled(&gpu_indicator, Style::default().fg(Color::Green)),
+            Span::styled(
+                &npu_indicator,
+                Style::default().fg(Color::Rgb(138, 113, 255)),
+            ),
+            Span::raw(" │ "),
+            Span::styled("◆ ", Style::default().fg(Color::Magenta)),
+            Span::styled(
+                page_indicator,
+                Style::default()
+                    .fg(Color::Rgb(255, 200, 100))
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" │ "),
+            Span::styled("F2-F5", Style::default().fg(Color::Cyan)),
+            Span::raw(": Pages │ "),
+            Span::styled(
+                "h",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(": Help │ "),
+            Span::styled(
+                "g",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(": GPU"),
+        ])];
 
         let block = Block::default()
             .borders(Borders::BOTTOM)
@@ -628,10 +667,10 @@ impl App {
 
     fn draw_cpu(&self, frame: &mut Frame, area: Rect) {
         let cpu_data = self.cpu_monitor.get_all_cpu_data();
-        
+
         // Pre-allocate with known capacity to avoid reallocations
         let mut all_data: Vec<Vec<(f64, f64)>> = Vec::with_capacity(cpu_data.len());
-        
+
         for (_, _, history) in &cpu_data {
             let mut data = Vec::with_capacity(history.len());
             for (x, &y) in history.iter().enumerate() {
@@ -639,7 +678,7 @@ impl App {
             }
             all_data.push(data);
         }
-        
+
         let datasets: Vec<Dataset> = cpu_data
             .iter()
             .zip(all_data.iter())
@@ -664,7 +703,8 @@ impl App {
             .collect();
 
         // Calculate average CPU usage for title color
-        let avg_cpu = cpu_data.iter().map(|(_, usage, _)| usage).sum::<f32>() / cpu_data.len().max(1) as f32;
+        let avg_cpu =
+            cpu_data.iter().map(|(_, usage, _)| usage).sum::<f32>() / cpu_data.len().max(1) as f32;
         let title_color = if avg_cpu > 80.0 {
             Color::Rgb(235, 112, 112) // Red
         } else if avg_cpu > 60.0 {
@@ -679,9 +719,22 @@ impl App {
             .block(
                 Block::default()
                     .title(vec![
-                        Span::styled("⚡ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                        Span::styled("CPU Usage ", Style::default().fg(title_color).add_modifier(Modifier::BOLD)),
-                        Span::styled(format!("[{:.1}%]", avg_cpu), Style::default().fg(title_color)),
+                        Span::styled(
+                            "⚡ ",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            "CPU Usage ",
+                            Style::default()
+                                .fg(title_color)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            format!("[{:.1}%]", avg_cpu),
+                            Style::default().fg(title_color),
+                        ),
                     ])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Rgb(61, 123, 70)))
@@ -689,18 +742,33 @@ impl App {
             )
             .x_axis(
                 Axis::default()
-                    .title(Span::styled("← Time (60s history)", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled(
+                        "← Time (60s history)",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 60.0])
                     .labels(vec![
                         Span::styled("60s", Style::default().fg(Color::DarkGray)),
                         Span::styled("30s", Style::default().fg(Color::Gray)),
-                        Span::styled("now", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            "now",
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                     ]),
             )
             .y_axis(
                 Axis::default()
-                    .title(Span::styled("% ↑", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled(
+                        "% ↑",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 100.0])
                     .labels(vec![
@@ -765,8 +833,16 @@ impl App {
                 Block::default()
                     .title(vec![
                         Span::styled("💾 ", Style::default().fg(Color::Rgb(245, 166, 35))),
-                        Span::styled("Memory & Swap ", Style::default().fg(Color::Rgb(138, 136, 46)).add_modifier(Modifier::BOLD)),
-                        Span::styled(format!("[{:.1}%]", mem_percent), Style::default().fg(mem_color)),
+                        Span::styled(
+                            "Memory & Swap ",
+                            Style::default()
+                                .fg(Color::Rgb(138, 136, 46))
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            format!("[{:.1}%]", mem_percent),
+                            Style::default().fg(mem_color),
+                        ),
                     ])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Rgb(138, 136, 46)))
@@ -774,18 +850,33 @@ impl App {
             )
             .x_axis(
                 Axis::default()
-                    .title(Span::styled("← Time (60s)", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled(
+                        "← Time (60s)",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 60.0])
                     .labels(vec![
                         Span::styled("60s", Style::default().fg(Color::DarkGray)),
                         Span::styled("30s", Style::default().fg(Color::Gray)),
-                        Span::styled("now", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            "now",
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                     ]),
             )
             .y_axis(
                 Axis::default()
-                    .title(Span::styled("% ↑", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)))
+                    .title(Span::styled(
+                        "% ↑",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ))
                     .style(Style::default().fg(Color::Gray))
                     .bounds([0.0, 100.0])
                     .labels(vec![
@@ -807,15 +898,24 @@ impl App {
             .split(area);
 
         let (mem_percent, _, mem_used, mem_total) = self.memory_monitor.get_memory_data();
-        let mem_text = self.create_circular_gauge("Memory", mem_percent, mem_used, mem_total, COLORS[0]);
+        let mem_text =
+            self.create_circular_gauge("Memory", mem_percent, mem_used, mem_total, COLORS[0]);
         frame.render_widget(mem_text, chunks[0]);
 
         let (swap_percent, _, swap_used, swap_total) = self.memory_monitor.get_swap_data();
-        let swap_text = self.create_circular_gauge("Swap", swap_percent, swap_used, swap_total, COLORS[1]);
+        let swap_text =
+            self.create_circular_gauge("Swap", swap_percent, swap_used, swap_total, COLORS[1]);
         frame.render_widget(swap_text, chunks[1]);
     }
 
-    fn create_circular_gauge<'a>(&self, title: &'a str, percent: f32, used: u64, total: u64, base_color: Color) -> Paragraph<'a> {
+    fn create_circular_gauge<'a>(
+        &self,
+        title: &'a str,
+        percent: f32,
+        used: u64,
+        total: u64,
+        base_color: Color,
+    ) -> Paragraph<'a> {
         let color = if percent > 90.0 {
             Color::Red
         } else if percent > 70.0 {
@@ -827,7 +927,7 @@ impl App {
         // Create a more elegant visual bar
         let bar_length = 20;
         let filled = ((percent / 100.0 * bar_length as f32) as usize).min(bar_length);
-        
+
         // Use different characters for gradient effect
         let mut bar = String::new();
         for i in 0..bar_length {
@@ -856,7 +956,9 @@ impl App {
                 ),
                 Span::styled(
                     title,
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::raw("  "),
                 Span::styled(
@@ -873,13 +975,12 @@ impl App {
                 Span::raw("  "),
                 Span::styled(
                     format_bytes(used, true),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(" / ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    format_bytes(total, true),
-                    Style::default().fg(Color::Cyan),
-                ),
+                Span::styled(format_bytes(total, true), Style::default().fg(Color::Cyan)),
             ]),
             Line::from(""),
         ];
@@ -898,8 +999,20 @@ impl App {
         let (_, _, rx_sec, tx_sec, total_rx, total_tx) = self.network_monitor.get_network_data();
 
         // Activity indicators
-        let rx_indicator = if rx_sec > 1000000 { "●" } else if rx_sec > 10000 { "◐" } else { "○" };
-        let tx_indicator = if tx_sec > 1000000 { "●" } else if tx_sec > 10000 { "◐" } else { "○" };
+        let rx_indicator = if rx_sec > 1000000 {
+            "●"
+        } else if rx_sec > 10000 {
+            "◐"
+        } else {
+            "○"
+        };
+        let tx_indicator = if tx_sec > 1000000 {
+            "●"
+        } else if tx_sec > 10000 {
+            "◐"
+        } else {
+            "○"
+        };
 
         let rx_rate = format_bytes(rx_sec, false);
         let tx_rate = format_bytes(tx_sec, false);
@@ -921,38 +1034,69 @@ impl App {
         let mut text = vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("  ▼ Download ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "  ▼ Download ",
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(rx_indicator, Style::default().fg(Color::Blue)),
                 Span::raw("  "),
-                Span::styled("▲ Upload ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "▲ Upload ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(tx_indicator, Style::default().fg(Color::Green)),
             ]),
             Line::from(""),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled(format!("{:>12}", rx_rate), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:>12}", rx_rate),
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled("/s", Style::default().fg(Color::DarkGray)),
                 Span::raw("  "),
-                Span::styled(format!("{:>12}", tx_rate), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:>12}", tx_rate),
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled("/s", Style::default().fg(Color::DarkGray)),
             ]),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled(format!("{:>12}", rx_total), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("{:>12}", rx_total),
+                    Style::default().fg(Color::Cyan),
+                ),
                 Span::styled(" total", Style::default().fg(Color::DarkGray)),
                 Span::raw(" "),
-                Span::styled(format!("{:>12}", tx_total), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("{:>12}", tx_total),
+                    Style::default().fg(Color::Cyan),
+                ),
                 Span::styled(" total", Style::default().fg(Color::DarkGray)),
             ]),
         ];
 
         // Add separator and additional info
         text.push(Line::from(""));
-        
+
         // Interface and ping info
         let mut info_line = vec![
             Span::styled("  ◆ ", Style::default().fg(Color::Yellow)),
-            Span::styled(interface, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                interface,
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::raw("  │  "),
         ];
 
@@ -965,7 +1109,10 @@ impl App {
                 Color::Red
             };
             info_line.push(Span::styled("⚡ ", Style::default().fg(ping_color)));
-            info_line.push(Span::styled(format!("{:.1} ms", latency), Style::default().fg(ping_color).add_modifier(Modifier::BOLD)));
+            info_line.push(Span::styled(
+                format!("{:.1} ms", latency),
+                Style::default().fg(ping_color).add_modifier(Modifier::BOLD),
+            ));
         } else {
             info_line.push(Span::styled("⚡ ", Style::default().fg(Color::DarkGray)));
             info_line.push(Span::styled("--- ms", Style::default().fg(Color::DarkGray)));
@@ -1015,17 +1162,23 @@ impl App {
         }
 
         let available = total.saturating_sub(used);
-        
+
         let lines = vec![
             Line::from(""),
             Line::from(vec![
                 Span::raw("  ["),
-                Span::styled(bar, Style::default().fg(disk_color).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    bar,
+                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("]"),
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("  ● ", Style::default().fg(disk_color).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "  ● ",
+                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(
                     format!("{:>5.1}%", percent),
                     Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
@@ -1033,7 +1186,9 @@ impl App {
                 Span::raw("  Used: "),
                 Span::styled(
                     format!("{:<10}", format_bytes(used, true)),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::from(vec![
@@ -1044,10 +1199,7 @@ impl App {
                     Style::default().fg(Color::Green),
                 ),
                 Span::raw("  Total: "),
-                Span::styled(
-                    format_bytes(total, true),
-                    Style::default().fg(Color::Cyan),
-                ),
+                Span::styled(format_bytes(total, true), Style::default().fg(Color::Cyan)),
             ]),
             Line::from(""),
         ];
@@ -1068,7 +1220,7 @@ impl App {
 
     fn draw_processes(&self, frame: &mut Frame, area: Rect) {
         let mut processes = self.process_monitor.get_sorted_processes();
-        
+
         // Apply filter if active
         if let Some(ref regex) = self.process_filter_regex {
             processes = processes
@@ -1079,12 +1231,12 @@ impl App {
 
         let total_processes = processes.len();
         let visible_count = (area.height as usize).saturating_sub(3).min(20);
-        
+
         let end_index = (self.process_scroll + visible_count).min(total_processes);
         let processes_slice = &processes[self.process_scroll..end_index];
-        
+
         let mut rows = Vec::with_capacity(processes_slice.len());
-        
+
         for (i, p) in processes_slice.iter().enumerate() {
             let _cpu_color = if p.cpu_usage > 50.0 {
                 Color::Red
@@ -1104,22 +1256,28 @@ impl App {
             };
 
             let row = Row::new(vec![
-                if is_selected { "▶".to_string() } else { " ".to_string() },
+                if is_selected {
+                    "▶".to_string()
+                } else {
+                    " ".to_string()
+                },
                 p.pid.to_string(),
                 p.name.chars().take(20).collect::<String>(),
                 format!("{:.1}%", p.cpu_usage),
                 format_bytes(p.memory, false),
             ])
             .style(style);
-            
+
             rows.push(row);
         }
 
         let scroll_info = if total_processes > visible_count {
-            format!(" [{}-{}/{}] ", 
-                self.process_scroll + 1, 
-                end_index, 
-                total_processes)
+            format!(
+                " [{}-{}/{}] ",
+                self.process_scroll + 1,
+                end_index,
+                total_processes
+            )
         } else {
             format!(" [{}] ", total_processes)
         };
@@ -1157,13 +1315,12 @@ impl App {
             ],
         )
         .header(
-            Row::new(vec!["", "PID", "Process", "CPU", "Memory"])
-                .style(
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD)
-                        .add_modifier(Modifier::UNDERLINED),
-                ),
+            Row::new(vec!["", "PID", "Process", "CPU", "Memory"]).style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::UNDERLINED),
+            ),
         )
         .block(
             Block::default()
@@ -1194,13 +1351,17 @@ impl App {
             if let Some(process) = processes.get(index) {
                 let text = vec![
                     Line::from(""),
-                    Line::from(vec![
-                        Span::styled("Kill process?", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                    ]),
+                    Line::from(vec![Span::styled(
+                        "Kill process?",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    )]),
                     Line::from(""),
                     Line::from(vec![
                         Span::raw("PID: "),
-                        Span::styled(format!("{}", process.pid), Style::default().fg(Color::Yellow)),
+                        Span::styled(
+                            format!("{}", process.pid),
+                            Style::default().fg(Color::Yellow),
+                        ),
                     ]),
                     Line::from(vec![
                         Span::raw("Name: "),
@@ -1209,8 +1370,16 @@ impl App {
                     Line::from(""),
                     Line::from(vec![
                         Span::styled("Press ", Style::default().fg(Color::DarkGray)),
-                        Span::styled("Y", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                        Span::styled(" to confirm, any other key to cancel", Style::default().fg(Color::DarkGray)),
+                        Span::styled(
+                            "Y",
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            " to confirm, any other key to cancel",
+                            Style::default().fg(Color::DarkGray),
+                        ),
                     ]),
                 ];
 
@@ -1233,7 +1402,7 @@ impl App {
     #[allow(dead_code)]
     fn draw_temperature_compact(&self, frame: &mut Frame, area: Rect) {
         let temp_data = self.temp_monitor.get_temperature_data();
-        
+
         // If no temperature data available, show a message
         if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
             return;
@@ -1241,17 +1410,17 @@ impl App {
 
         // Create a compact horizontal display of temperatures
         let mut lines = vec![Line::from("")];
-        
+
         // Group temperatures into rows
         let temps_per_row = 3;
         for chunk in temp_data.chunks(temps_per_row) {
             let mut row_spans = vec![Span::raw("  ")];
-            
+
             for (i, (label, temp, _)) in chunk.iter().enumerate() {
                 if i > 0 {
                     row_spans.push(Span::raw(" │ "));
                 }
-                
+
                 let temp_color = if *temp > 80.0 {
                     Color::Red
                 } else if *temp > 65.0 {
@@ -1277,24 +1446,35 @@ impl App {
                     label.clone()
                 };
 
-                row_spans.push(Span::styled(format!("{} ", icon), Style::default().fg(temp_color)));
+                row_spans.push(Span::styled(
+                    format!("{} ", icon),
+                    Style::default().fg(temp_color),
+                ));
                 row_spans.push(Span::styled(
                     format!("{:.0}°C ", temp),
                     Style::default().fg(temp_color).add_modifier(Modifier::BOLD),
                 ));
-                row_spans.push(Span::styled(display_label, Style::default().fg(Color::DarkGray)));
+                row_spans.push(Span::styled(
+                    display_label,
+                    Style::default().fg(Color::DarkGray),
+                ));
             }
-            
+
             lines.push(Line::from(row_spans));
         }
-        
+
         lines.push(Line::from(""));
 
         let paragraph = Paragraph::new(lines).block(
             Block::default()
                 .title(vec![
                     Span::styled("🌡 ", Style::default().fg(Color::Red)),
-                    Span::styled("Temperature", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
+                    Span::styled(
+                        "Temperature",
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Cyan),
+                    ),
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
@@ -1306,7 +1486,7 @@ impl App {
 
     fn draw_temperature(&self, frame: &mut Frame, area: Rect) {
         let temp_data = self.temp_monitor.get_temperature_data();
-        
+
         // If no temperature data available, show a message
         if !self.temp_monitor.has_temperature_sensors() || temp_data.is_empty() {
             return;
@@ -1314,7 +1494,7 @@ impl App {
 
         // Create a vertical column display of temperatures
         let mut lines = vec![];
-        
+
         for (label, temp, _) in temp_data.iter() {
             let temp_color = if *temp > 80.0 {
                 Color::Red
@@ -1353,9 +1533,7 @@ impl App {
 
         let paragraph = Paragraph::new(lines).block(
             Block::default()
-                .title(vec![
-                    Span::styled("🌡", Style::default().fg(Color::Red)),
-                ])
+                .title(vec![Span::styled("🌡", Style::default().fg(Color::Red))])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
                 .border_type(ratatui::widgets::BorderType::Rounded),
@@ -1373,19 +1551,24 @@ impl App {
                     Span::styled("No GPU detected", Style::default().fg(Color::Gray)),
                 ]),
             ];
-            
+
             let paragraph = Paragraph::new(text).block(
                 Block::default()
                     .title(vec![
                         Span::styled("🎮 ", Style::default().fg(Color::DarkGray)),
-                        Span::styled("GPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
+                        Span::styled(
+                            "GPU ",
+                            Style::default()
+                                .add_modifier(Modifier::BOLD)
+                                .fg(Color::DarkGray),
+                        ),
                         Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
                     ])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::DarkGray))
                     .border_type(ratatui::widgets::BorderType::Rounded),
             );
-            
+
             frame.render_widget(paragraph, area);
             return;
         }
@@ -1413,18 +1596,30 @@ impl App {
 
             // GPU name and utilization
             lines.push(Line::from(vec![
-                Span::styled(format!(" {} ", gpu.index), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!(" {} ", gpu.index),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(&gpu.name, Style::default().fg(Color::Cyan)),
             ]));
 
             // Utilization bar
             let util_bar_width = 30;
             let filled = (gpu.utilization as usize * util_bar_width) / 100;
-            let util_bar = format!("[{}{}]", "█".repeat(filled), "░".repeat(util_bar_width - filled));
-            
+            let util_bar = format!(
+                "[{}{}]",
+                "█".repeat(filled),
+                "░".repeat(util_bar_width - filled)
+            );
+
             lines.push(Line::from(vec![
                 Span::raw("   GPU: "),
-                Span::styled(format!("{:3}% ", gpu.utilization), Style::default().fg(util_color).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:3}% ", gpu.utilization),
+                    Style::default().fg(util_color).add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(util_bar, Style::default().fg(util_color)),
             ]));
 
@@ -1433,13 +1628,23 @@ impl App {
                 let mem_used_gb = gpu.memory_used as f64 / 1024.0 / 1024.0 / 1024.0;
                 let mem_total_gb = gpu.memory_total as f64 / 1024.0 / 1024.0 / 1024.0;
                 let mem_filled = (mem_percent as usize * util_bar_width) / 100;
-                let mem_bar = format!("[{}{}]", "█".repeat(mem_filled), "░".repeat(util_bar_width - mem_filled));
-                
+                let mem_bar = format!(
+                    "[{}{}]",
+                    "█".repeat(mem_filled),
+                    "░".repeat(util_bar_width - mem_filled)
+                );
+
                 lines.push(Line::from(vec![
                     Span::raw("   MEM: "),
-                    Span::styled(format!("{:3}% ", mem_percent), Style::default().fg(mem_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("{:3}% ", mem_percent),
+                        Style::default().fg(mem_color).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(mem_bar, Style::default().fg(mem_color)),
-                    Span::styled(format!(" {:.1}/{:.1}GB", mem_used_gb, mem_total_gb), Style::default().fg(Color::Gray)),
+                    Span::styled(
+                        format!(" {:.1}/{:.1}GB", mem_used_gb, mem_total_gb),
+                        Style::default().fg(Color::Gray),
+                    ),
                 ]));
             } else {
                 lines.push(Line::from(vec![
@@ -1448,19 +1653,24 @@ impl App {
                     Span::styled("(System RAM)", Style::default().fg(Color::DarkGray)),
                 ]));
             }
-            
+
             // Add helpful hint if utilization is very low
             if gpu.utilization == 0 && gpu.vendor == "Intel" {
                 lines.push(Line::from(vec![
                     Span::raw("   "),
                     Span::styled("💡 ", Style::default().fg(Color::Yellow)),
-                    Span::styled("Install intel-gpu-tools for accurate metrics", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+                    Span::styled(
+                        "Install intel-gpu-tools for accurate metrics",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ),
                 ]));
             }
 
             // Additional info line
             let mut info_spans = vec![Span::raw("   ")];
-            
+
             if let Some(temp) = gpu.temperature {
                 let temp_color = if temp > 80 {
                     Color::Red
@@ -1469,25 +1679,37 @@ impl App {
                 } else {
                     Color::Green
                 };
-                info_spans.push(Span::styled(format!("🌡 {}°C ", temp), Style::default().fg(temp_color)));
+                info_spans.push(Span::styled(
+                    format!("🌡 {}°C ", temp),
+                    Style::default().fg(temp_color),
+                ));
             }
-            
+
             if let Some(power) = gpu.power_usage {
-                info_spans.push(Span::styled(format!("⚡ {:.0}W ", power), Style::default().fg(Color::Yellow)));
+                info_spans.push(Span::styled(
+                    format!("⚡ {:.0}W ", power),
+                    Style::default().fg(Color::Yellow),
+                ));
             }
-            
+
             if let Some(clock) = gpu.clock_speed {
-                info_spans.push(Span::styled(format!("⏱ {}MHz ", clock), Style::default().fg(Color::Cyan)));
+                info_spans.push(Span::styled(
+                    format!("⏱ {}MHz ", clock),
+                    Style::default().fg(Color::Cyan),
+                ));
             }
-            
+
             if let Some(fan) = gpu.fan_speed {
-                info_spans.push(Span::styled(format!("🌀 {}% ", fan), Style::default().fg(Color::Blue)));
+                info_spans.push(Span::styled(
+                    format!("🌀 {}% ", fan),
+                    Style::default().fg(Color::Blue),
+                ));
             }
-            
+
             if info_spans.len() > 1 {
                 lines.push(Line::from(info_spans));
             }
-            
+
             lines.push(Line::from(""));
         }
 
@@ -1495,7 +1717,12 @@ impl App {
             Block::default()
                 .title(vec![
                     Span::styled("🎮 ", Style::default().fg(Color::Rgb(138, 113, 255))),
-                    Span::styled("GPU", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(138, 113, 255))),
+                    Span::styled(
+                        "GPU",
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Rgb(138, 113, 255)),
+                    ),
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(138, 113, 255)))
@@ -1514,19 +1741,24 @@ impl App {
                     Span::styled("No NPU detected", Style::default().fg(Color::Gray)),
                 ]),
             ];
-            
+
             let paragraph = Paragraph::new(text).block(
                 Block::default()
                     .title(vec![
                         Span::styled("🧠 ", Style::default().fg(Color::DarkGray)),
-                        Span::styled("NPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::DarkGray)),
+                        Span::styled(
+                            "NPU ",
+                            Style::default()
+                                .add_modifier(Modifier::BOLD)
+                                .fg(Color::DarkGray),
+                        ),
                         Span::styled("(unavailable)", Style::default().fg(Color::DarkGray)),
                     ])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::DarkGray))
                     .border_type(ratatui::widgets::BorderType::Rounded),
             );
-            
+
             frame.render_widget(paragraph, area);
             return;
         }
@@ -1546,37 +1778,58 @@ impl App {
             // NPU name and vendor
             lines.push(Line::from(vec![
                 Span::styled("🧠 ", Style::default().fg(Color::Rgb(138, 113, 255))),
-                Span::styled(&npu.name, Style::default().fg(Color::Rgb(180, 160, 255)).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    &npu.name,
+                    Style::default()
+                        .fg(Color::Rgb(180, 160, 255))
+                        .add_modifier(Modifier::BOLD),
+                ),
             ]));
 
             // Utilization bar
             let util_bar_width = 30;
             let filled = (npu.utilization as usize * util_bar_width) / 100;
-            let util_bar = format!("[{}{}]", "█".repeat(filled), "░".repeat(util_bar_width - filled));
-            
+            let util_bar = format!(
+                "[{}{}]",
+                "█".repeat(filled),
+                "░".repeat(util_bar_width - filled)
+            );
+
             lines.push(Line::from(vec![
                 Span::raw("   AI:  "),
-                Span::styled(format!("{:3}% ", npu.utilization), Style::default().fg(util_color).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:3}% ", npu.utilization),
+                    Style::default().fg(util_color).add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(util_bar, Style::default().fg(util_color)),
             ]));
 
             // Additional info line
             let mut info_spans = vec![Span::raw("   ")];
-            
+
             if let Some(tops) = npu.tops {
-                info_spans.push(Span::styled(format!("⚡ {} TOPS ", tops), Style::default().fg(Color::Cyan)));
+                info_spans.push(Span::styled(
+                    format!("⚡ {} TOPS ", tops),
+                    Style::default().fg(Color::Cyan),
+                ));
             }
-            
+
             if let Some(power) = npu.power_usage {
-                info_spans.push(Span::styled(format!("🔋 {:.1}W ", power), Style::default().fg(Color::Yellow)));
+                info_spans.push(Span::styled(
+                    format!("🔋 {:.1}W ", power),
+                    Style::default().fg(Color::Yellow),
+                ));
             }
-            
-            info_spans.push(Span::styled(format!("({} {})", npu.vendor, self.npu_monitor.vendor_string()), Style::default().fg(Color::DarkGray)));
-            
+
+            info_spans.push(Span::styled(
+                format!("({} {})", npu.vendor, self.npu_monitor.vendor_string()),
+                Style::default().fg(Color::DarkGray),
+            ));
+
             if info_spans.len() > 1 {
                 lines.push(Line::from(info_spans));
             }
-            
+
             lines.push(Line::from(""));
         }
 
@@ -1584,8 +1837,18 @@ impl App {
             Block::default()
                 .title(vec![
                     Span::styled("🧠 ", Style::default().fg(Color::Rgb(138, 113, 255))),
-                    Span::styled("NPU ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(138, 113, 255))),
-                    Span::styled("(AI Accelerator)", Style::default().fg(Color::Rgb(100, 80, 150)).add_modifier(Modifier::ITALIC)),
+                    Span::styled(
+                        "NPU ",
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Rgb(138, 113, 255)),
+                    ),
+                    Span::styled(
+                        "(AI Accelerator)",
+                        Style::default()
+                            .fg(Color::Rgb(100, 80, 150))
+                            .add_modifier(Modifier::ITALIC),
+                    ),
                 ])
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(138, 113, 255)))
@@ -1597,21 +1860,38 @@ impl App {
 
     fn draw_footer(&self, frame: &mut Frame, area: Rect) {
         let (load_1, load_5, load_15) = self.system_monitor.load_average();
-        
+
         let status = if self.paused {
-            Span::styled(" ⏸ PAUSED ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD).bg(Color::Rgb(60, 60, 0)))
+            Span::styled(
+                " ⏸ PAUSED ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::Rgb(60, 60, 0)),
+            )
         } else {
-            Span::styled(" ▶ RUNNING ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            Span::styled(
+                " ▶ RUNNING ",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
         };
 
         let mut footer_spans = vec![
             status,
             Span::raw(" │ "),
             Span::styled("Uptime: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(self.system_monitor.uptime_formatted(), Style::default().fg(Color::Cyan)),
+            Span::styled(
+                self.system_monitor.uptime_formatted(),
+                Style::default().fg(Color::Cyan),
+            ),
             Span::raw(" │ "),
             Span::styled("Load: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{:.2} {:.2} {:.2}", load_1, load_5, load_15), Style::default().fg(Color::White)),
+            Span::styled(
+                format!("{:.2} {:.2} {:.2}", load_1, load_5, load_15),
+                Style::default().fg(Color::White),
+            ),
         ];
 
         // Add battery info if available
@@ -1629,28 +1909,43 @@ impl App {
                 Span::raw(" │ "),
                 Span::styled(battery_icon, Style::default()),
                 Span::raw(" "),
-                Span::styled(format!("{:.0}%", battery.percentage), Style::default().fg(battery_color)),
+                Span::styled(
+                    format!("{:.0}%", battery.percentage),
+                    Style::default().fg(battery_color),
+                ),
             ]);
         }
 
         footer_spans.extend(vec![
             Span::raw(" │ "),
             Span::styled("Processes: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", self.system_monitor.total_processes()), Style::default().fg(Color::White)),
+            Span::styled(
+                format!("{}", self.system_monitor.total_processes()),
+                Style::default().fg(Color::White),
+            ),
         ]);
 
         if !self.process_filter.is_empty() {
             footer_spans.extend(vec![
                 Span::raw(" │ "),
                 Span::styled("Filter: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(&self.process_filter, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    &self.process_filter,
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
             ]);
         }
 
         let footer_text = vec![Line::from(footer_spans)];
 
         let paragraph = Paragraph::new(footer_text)
-            .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(Color::DarkGray)))
+            .block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            )
             .alignment(ratatui::layout::Alignment::Center);
 
         frame.render_widget(paragraph, area);
@@ -1661,119 +1956,198 @@ impl App {
         let popup_area = Self::centered_rect(60, 70, area);
 
         // Clear the popup area
-        let clear_block = Block::default()
-            .style(Style::default().bg(Color::Rgb(20, 30, 50)));
+        let clear_block = Block::default().style(Style::default().bg(Color::Rgb(20, 30, 50)));
         frame.render_widget(clear_block, popup_area);
 
         let help_text = vec![
             Line::from(""),
-            Line::from(vec![
-                Span::styled("                   ⚡ rtop - Help ⚡", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            ]),
+            Line::from(vec![Span::styled(
+                "                   ⚡ rtop - Help ⚡",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "  Navigation & Control:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::UNDERLINED),
+            )]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("  Navigation & Control:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("    q, Esc, Ctrl+C  ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    q, Esc, Ctrl+C  ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Quit application"),
             ]),
             Line::from(vec![
-                Span::styled("    h, F1           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    h, F1           ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Toggle this help screen"),
             ]),
             Line::from(vec![
-                Span::styled("    F2-F5           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    F2-F5           ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Switch pages (Overview/Process/Network/Storage)"),
             ]),
             Line::from(vec![
-                Span::styled("    Space           ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    Space           ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Pause/Resume updates"),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("  Process List:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
-            ]),
+            Line::from(vec![Span::styled(
+                "  Process List:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::UNDERLINED),
+            )]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("    ↑↓, PgUp/Dn     ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    ↑↓, PgUp/Dn     ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Navigate/scroll process list"),
             ]),
             Line::from(vec![
-                Span::styled("    Home/End        ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    Home/End        ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Jump to first/last process"),
             ]),
             Line::from(vec![
-                Span::styled("    Mouse wheel     ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    Mouse wheel     ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Scroll processes"),
             ]),
             Line::from(vec![
-                Span::styled("    k               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    k               ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Kill selected process (with confirm)"),
             ]),
             Line::from(vec![
-                Span::styled("    /               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    /               ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Filter processes (regex)"),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("  Process Sorting:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
-            ]),
+            Line::from(vec![Span::styled(
+                "  Process Sorting:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::UNDERLINED),
+            )]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("    p               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    p               ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Sort by PID"),
             ]),
             Line::from(vec![
-                Span::styled("    c               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    c               ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Sort by CPU usage"),
             ]),
             Line::from(vec![
-                Span::styled("    m               ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "    m               ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("→ Sort by Memory usage"),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("  Features:", Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
-            ]),
+            Line::from(vec![Span::styled(
+                "  Features:",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::UNDERLINED),
+            )]),
             Line::from(""),
-            Line::from(vec![
-                Span::raw("    • Real-time CPU, Memory, Network, Disk, Battery"),
-            ]),
-            Line::from(vec![
-                Span::raw("    • Temperature & Disk I/O monitoring"),
-            ]),
-            Line::from(vec![
-                Span::raw("    • Process management with mouse support"),
-            ]),
-            Line::from(vec![
-                Span::raw("    • System info: uptime, load average"),
-            ]),
-            Line::from(vec![
-                Span::raw("    • Export to JSON/CSV formats"),
-            ]),
-            Line::from(vec![
-                Span::raw("    • Regex filtering and multi-page navigation"),
-            ]),
+            Line::from(vec![Span::raw(
+                "    • Real-time CPU, Memory, Network, Disk, Battery",
+            )]),
+            Line::from(vec![Span::raw("    • Temperature & Disk I/O monitoring")]),
+            Line::from(vec![Span::raw(
+                "    • Process management with mouse support",
+            )]),
+            Line::from(vec![Span::raw("    • System info: uptime, load average")]),
+            Line::from(vec![Span::raw("    • Export to JSON/CSV formats")]),
+            Line::from(vec![Span::raw(
+                "    • Regex filtering and multi-page navigation",
+            )]),
             Line::from(""),
             Line::from(vec![
                 Span::raw("  Config: "),
-                Span::styled("~/.config/rtop/config.toml", Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    "~/.config/rtop/config.toml",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("  Press any key to close this help", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
-            ]),
+            Line::from(vec![Span::styled(
+                "  Press any key to close this help",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::ITALIC),
+            )]),
             Line::from(""),
         ];
 
         let help_paragraph = Paragraph::new(help_text)
             .block(
                 Block::default()
-                    .title(vec![
-                        Span::styled(" ❓ Help ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    ])
+                    .title(vec![Span::styled(
+                        " ❓ Help ",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    )])
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Yellow))
                     .border_type(ratatui::widgets::BorderType::Thick)

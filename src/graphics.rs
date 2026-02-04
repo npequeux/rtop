@@ -23,69 +23,51 @@ pub mod symbols {
     pub const DIV_LEFT: &str = "├";
     pub const DIV_UP: &str = "┬";
     pub const DIV_DOWN: &str = "┴";
-    
+
     pub const UP: &str = "↑";
     pub const DOWN: &str = "↓";
     pub const LEFT: &str = "←";
     pub const RIGHT: &str = "→";
     pub const ENTER: &str = "↵";
-    
+
     pub const METER: &str = "■";
-    
+
     pub const SUPERSCRIPT: [&str; 10] = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
-    
+
     /// Braille patterns for upward-facing graphs (25 symbols for 5x5 resolution)
     pub const BRAILLE_UP: [&str; 25] = [
-        " ", "⢀", "⢠", "⢰", "⢸",
-        "⡀", "⣀", "⣠", "⣰", "⣸",
-        "⡄", "⣄", "⣤", "⣴", "⣼",
-        "⡆", "⣆", "⣦", "⣶", "⣾",
-        "⡇", "⣇", "⣧", "⣷", "⣿"
+        " ", "⢀", "⢠", "⢰", "⢸", "⡀", "⣀", "⣠", "⣰", "⣸", "⡄", "⣄", "⣤", "⣴", "⣼", "⡆", "⣆", "⣦",
+        "⣶", "⣾", "⡇", "⣇", "⣧", "⣷", "⣿",
     ];
-    
+
     /// Braille patterns for downward-facing graphs
     pub const BRAILLE_DOWN: [&str; 25] = [
-        " ", "⠈", "⠘", "⠸", "⢸",
-        "⠁", "⠉", "⠙", "⠹", "⢹",
-        "⠃", "⠋", "⠛", "⠻", "⢻",
-        "⠇", "⠏", "⠟", "⠿", "⢿",
-        "⡇", "⡏", "⡟", "⡿", "⣿"
+        " ", "⠈", "⠘", "⠸", "⢸", "⠁", "⠉", "⠙", "⠹", "⢹", "⠃", "⠋", "⠛", "⠻", "⢻", "⠇", "⠏", "⠟",
+        "⠿", "⢿", "⡇", "⡏", "⡟", "⡿", "⣿",
     ];
-    
+
     /// Block patterns for upward-facing graphs
     pub const BLOCK_UP: [&str; 25] = [
-        " ", "▗", "▗", "▐", "▐",
-        "▖", "▄", "▄", "▟", "▟",
-        "▖", "▄", "▄", "▟", "▟",
-        "▌", "▙", "▙", "█", "█",
-        "▌", "▙", "▙", "█", "█"
+        " ", "▗", "▗", "▐", "▐", "▖", "▄", "▄", "▟", "▟", "▖", "▄", "▄", "▟", "▟", "▌", "▙", "▙",
+        "█", "█", "▌", "▙", "▙", "█", "█",
     ];
-    
+
     /// Block patterns for downward-facing graphs
     pub const BLOCK_DOWN: [&str; 25] = [
-        " ", "▝", "▝", "▐", "▐",
-        "▘", "▀", "▀", "▜", "▜",
-        "▘", "▀", "▀", "▜", "▜",
-        "▌", "▛", "▛", "█", "█",
-        "▌", "▛", "▛", "█", "█"
+        " ", "▝", "▝", "▐", "▐", "▘", "▀", "▀", "▜", "▜", "▘", "▀", "▀", "▜", "▜", "▌", "▛", "▛",
+        "█", "█", "▌", "▛", "▛", "█", "█",
     ];
-    
+
     /// TTY-compatible patterns for upward graphs
     pub const TTY_UP: [&str; 25] = [
-        " ", "░", "░", "▒", "▒",
-        "░", "░", "▒", "▒", "█",
-        "░", "▒", "▒", "▒", "█",
-        "▒", "▒", "▒", "█", "█",
-        "▒", "█", "█", "█", "█"
+        " ", "░", "░", "▒", "▒", "░", "░", "▒", "▒", "█", "░", "▒", "▒", "▒", "█", "▒", "▒", "▒",
+        "█", "█", "▒", "█", "█", "█", "█",
     ];
-    
+
     /// TTY-compatible patterns for downward graphs
     pub const TTY_DOWN: [&str; 25] = [
-        " ", "░", "░", "▒", "▒",
-        "░", "░", "▒", "▒", "█",
-        "░", "▒", "▒", "▒", "█",
-        "▒", "▒", "▒", "█", "█",
-        "▒", "█", "█", "█", "█"
+        " ", "░", "░", "▒", "▒", "░", "░", "▒", "▒", "█", "░", "▒", "▒", "▒", "█", "▒", "▒", "▒",
+        "█", "█", "▒", "█", "█", "█", "█",
     ];
 }
 
@@ -134,13 +116,13 @@ impl GraphRenderer {
             no_zero: true,
         }
     }
-    
+
     /// Render a graph from data points (0-100 scale)
     /// Returns a vector of strings, one per height level
     pub fn render(&self, data: &[f64]) -> Vec<String> {
         let mut output = vec![String::new(); self.height];
         let symbols = self.symbol.get_symbols(self.inverted);
-        
+
         // Calculate how many data points fit in the width
         let data_len = data.len();
         let data_offset = if data_len > self.width * 2 {
@@ -148,14 +130,22 @@ impl GraphRenderer {
         } else {
             0
         };
-        
-        let mut _last_value = if data_offset > 0 { data[data_offset - 1] } else { 0.0 };
-        
+
+        let mut _last_value = if data_offset > 0 {
+            data[data_offset - 1]
+        } else {
+            0.0
+        };
+
         // Process data points in pairs for braille/block rendering
         for i in (data_offset..data_len).step_by(2) {
             let v1 = data[i].clamp(0.0, 100.0);
-            let v2 = if i + 1 < data_len { data[i + 1].clamp(0.0, 100.0) } else { v1 };
-            
+            let v2 = if i + 1 < data_len {
+                data[i + 1].clamp(0.0, 100.0)
+            } else {
+                v1
+            };
+
             // For each height level
             for h in 0..self.height {
                 let cur_high = if self.height > 1 {
@@ -168,25 +158,25 @@ impl GraphRenderer {
                 } else {
                     0.0
                 };
-                
+
                 // Calculate symbol indices for both values
                 let idx1 = self.value_to_symbol_index(v1, cur_low, cur_high);
                 let idx2 = self.value_to_symbol_index(v2, cur_low, cur_high);
-                
+
                 // Combine into 5x5 symbol grid index
                 let symbol_idx = (idx1 * 5 + idx2).min(24);
                 output[h].push_str(symbols[symbol_idx]);
             }
-            
+
             _last_value = v2;
         }
-        
+
         output
     }
-    
+
     fn value_to_symbol_index(&self, value: f64, cur_low: f64, cur_high: f64) -> usize {
         let clamp_min = if self.no_zero && value > 0.0 { 1 } else { 0 };
-        
+
         if value >= cur_high {
             4
         } else if value <= cur_low {
@@ -210,21 +200,21 @@ impl MeterRenderer {
     pub fn new(width: usize) -> Self {
         Self { width }
     }
-    
+
     /// Render a horizontal meter bar (0-100)
     pub fn render(&self, value: u8) -> String {
         let value = value.min(100);
         let filled = (self.width * value as usize) / 100;
-        
+
         symbols::METER.repeat(filled)
     }
-    
+
     /// Render with segments for more detailed view
     pub fn render_segmented(&self, value: u8) -> String {
         let value = value.min(100);
         let segments = self.width;
         let filled = (segments * value as usize) / 100;
-        
+
         let mut output = String::new();
         for i in 0..segments {
             if i < filled {
@@ -252,18 +242,26 @@ impl BoxDrawer {
             double_lines: false,
         }
     }
-    
+
     pub fn draw_box(&self, width: usize, height: usize, title: Option<&str>) -> Vec<String> {
         let mut lines = Vec::new();
-        
+
         let (lu, ru, ld, rd) = if self.rounded_corners {
-            (symbols::ROUND_LEFT_UP, symbols::ROUND_RIGHT_UP, 
-             symbols::ROUND_LEFT_DOWN, symbols::ROUND_RIGHT_DOWN)
+            (
+                symbols::ROUND_LEFT_UP,
+                symbols::ROUND_RIGHT_UP,
+                symbols::ROUND_LEFT_DOWN,
+                symbols::ROUND_RIGHT_DOWN,
+            )
         } else {
-            (symbols::LEFT_UP, symbols::RIGHT_UP, 
-             symbols::LEFT_DOWN, symbols::RIGHT_DOWN)
+            (
+                symbols::LEFT_UP,
+                symbols::RIGHT_UP,
+                symbols::LEFT_DOWN,
+                symbols::RIGHT_DOWN,
+            )
         };
-        
+
         // Top line with optional title
         let mut top = String::from(lu);
         if let Some(t) = title {
@@ -278,7 +276,7 @@ impl BoxDrawer {
         }
         top.push_str(ru);
         lines.push(top);
-        
+
         // Middle lines
         for _ in 1..height - 1 {
             let mut middle = String::from(symbols::V_LINE);
@@ -286,13 +284,13 @@ impl BoxDrawer {
             middle.push_str(symbols::V_LINE);
             lines.push(middle);
         }
-        
+
         // Bottom line
         let mut bottom = String::from(ld);
         bottom.push_str(&symbols::H_LINE.repeat(width - 2));
         bottom.push_str(rd);
         lines.push(bottom);
-        
+
         lines
     }
 }
@@ -300,22 +298,24 @@ impl BoxDrawer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_graph_renderer() {
         let renderer = GraphRenderer::new(20, 4, GraphSymbol::Braille, false);
-        let data: Vec<f64> = (0..40).map(|i| (i as f64 * 2.5).sin() * 50.0 + 50.0).collect();
+        let data: Vec<f64> = (0..40)
+            .map(|i| (i as f64 * 2.5).sin() * 50.0 + 50.0)
+            .collect();
         let graph = renderer.render(&data);
         assert_eq!(graph.len(), 4);
     }
-    
+
     #[test]
     fn test_meter_renderer() {
         let meter = MeterRenderer::new(10);
         let result = meter.render(50);
         assert_eq!(result.len(), 5 * symbols::METER.len());
     }
-    
+
     #[test]
     fn test_box_drawer() {
         let drawer = BoxDrawer::new(true);

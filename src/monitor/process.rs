@@ -1,5 +1,5 @@
-use sysinfo::{System, ProcessRefreshKind, RefreshKind, ProcessesToUpdate, Signal, Pid};
 use std::collections::HashMap;
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, Signal, System};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -15,15 +15,15 @@ pub enum SortOrder {
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum ProcessSignal {
-    Term,    // SIGTERM (15) - Termination signal
-    Kill,    // SIGKILL (9) - Kill signal
-    Int,     // SIGINT (2) - Interrupt
-    Hup,     // SIGHUP (1) - Hangup
-    Quit,    // SIGQUIT (3) - Quit
-    Stop,    // SIGSTOP (19) - Stop process
-    Cont,    // SIGCONT (18) - Continue process
-    Usr1,    // SIGUSR1 (10) - User-defined signal 1
-    Usr2,    // SIGUSR2 (12) - User-defined signal 2
+    Term, // SIGTERM (15) - Termination signal
+    Kill, // SIGKILL (9) - Kill signal
+    Int,  // SIGINT (2) - Interrupt
+    Hup,  // SIGHUP (1) - Hangup
+    Quit, // SIGQUIT (3) - Quit
+    Stop, // SIGSTOP (19) - Stop process
+    Cont, // SIGCONT (18) - Continue process
+    Usr1, // SIGUSR1 (10) - User-defined signal 1
+    Usr2, // SIGUSR2 (12) - User-defined signal 2
 }
 
 impl ProcessSignal {
@@ -41,7 +41,7 @@ impl ProcessSignal {
             ProcessSignal::Usr2 => Signal::User2,
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn name(&self) -> &str {
         match self {
@@ -56,7 +56,7 @@ impl ProcessSignal {
             ProcessSignal::Usr2 => "USR2 (12)",
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn description(&self) -> &str {
         match self {
@@ -71,7 +71,7 @@ impl ProcessSignal {
             ProcessSignal::Usr2 => "User-defined signal 2",
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn all_signals() -> Vec<ProcessSignal> {
         vec![
@@ -122,7 +122,7 @@ impl ProcessMonitor {
             RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
         );
         system.refresh_processes(ProcessesToUpdate::All, true);
-        
+
         Self {
             system,
             sort_order: SortOrder::Cpu,
@@ -131,14 +131,14 @@ impl ProcessMonitor {
             process_tree: HashMap::new(),
         }
     }
-    
+
     pub fn update(&mut self) {
         self.system.refresh_processes(ProcessesToUpdate::All, true);
         if self.tree_view {
             self.build_process_tree();
         }
     }
-    
+
     pub fn set_sort_order(&mut self, order: SortOrder) {
         if self.sort_order == order {
             self.reverse = !self.reverse;
@@ -147,7 +147,7 @@ impl ProcessMonitor {
             self.reverse = false;
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn toggle_tree_view(&mut self) {
         self.tree_view = !self.tree_view;
@@ -155,15 +155,15 @@ impl ProcessMonitor {
             self.build_process_tree();
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn is_tree_view(&self) -> bool {
         self.tree_view
     }
-    
+
     fn build_process_tree(&mut self) {
         self.process_tree.clear();
-        
+
         for (pid, process) in self.system.processes() {
             if let Some(parent) = process.parent() {
                 self.process_tree
@@ -173,13 +173,14 @@ impl ProcessMonitor {
             }
         }
     }
-    
+
     fn get_process_children(&self, pid: u32) -> Vec<u32> {
         self.process_tree.get(&pid).cloned().unwrap_or_default()
     }
-    
+
     pub fn get_sorted_processes(&self) -> Vec<ProcessInfo> {
-        let mut processes: Vec<ProcessInfo> = self.system
+        let mut processes: Vec<ProcessInfo> = self
+            .system
             .processes()
             .iter()
             .map(|(pid, process)| {
@@ -189,7 +190,7 @@ impl ProcessMonitor {
                 } else {
                     Vec::new()
                 };
-                
+
                 // Get process state
                 let state = if process.status().to_string().contains("Run") {
                     "R".to_string()
@@ -200,14 +201,15 @@ impl ProcessMonitor {
                 } else {
                     "?".to_string()
                 };
-                
+
                 ProcessInfo {
                     pid: pid.as_u32(),
                     ppid,
                     name: process.name().to_string_lossy().to_string(),
                     cpu_usage: process.cpu_usage(),
                     memory: process.memory(),
-                    user: process.user_id()
+                    user: process
+                        .user_id()
                         .map(|uid| uid.to_string())
                         .unwrap_or_else(|| "unknown".to_string()),
                     state,
@@ -219,18 +221,20 @@ impl ProcessMonitor {
                 }
             })
             .collect();
-        
+
         if self.tree_view {
             return self.build_tree_list(processes);
         }
-        
+
         match self.sort_order {
             SortOrder::Pid => {
                 processes.sort_by_key(|p| p.pid);
             }
             SortOrder::Cpu => {
                 processes.sort_by(|a, b| {
-                    b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal)
+                    b.cpu_usage
+                        .partial_cmp(&a.cpu_usage)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 });
             }
             SortOrder::Memory => {
@@ -243,36 +247,33 @@ impl ProcessMonitor {
                 processes.sort_by(|a, b| a.user.cmp(&b.user));
             }
         }
-        
+
         if self.reverse {
             processes.reverse();
         }
-        
+
         processes
     }
-    
+
     fn build_tree_list(&self, mut processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
         let mut result = Vec::new();
-        let proc_map: HashMap<u32, ProcessInfo> = processes
-            .drain(..)
-            .map(|p| (p.pid, p))
-            .collect();
-        
+        let proc_map: HashMap<u32, ProcessInfo> = processes.drain(..).map(|p| (p.pid, p)).collect();
+
         // Find root processes (those without parents or with non-existent parents)
         let root_pids: Vec<u32> = proc_map
             .values()
             .filter(|p| p.ppid.is_none() || !proc_map.contains_key(&p.ppid.unwrap()))
             .map(|p| p.pid)
             .collect();
-        
+
         // Recursively build tree
         for pid in root_pids {
             self.add_process_tree(&proc_map, pid, 0, &mut result);
         }
-        
+
         result
     }
-    
+
     fn add_process_tree(
         &self,
         proc_map: &HashMap<u32, ProcessInfo>,
@@ -284,18 +285,18 @@ impl ProcessMonitor {
             proc.tree_depth = depth;
             let children = proc.children.clone();
             result.push(proc);
-            
+
             for child_pid in children {
                 self.add_process_tree(proc_map, child_pid, depth + 1, result);
             }
         }
     }
-    
+
     /// Send a signal to a process
     #[allow(dead_code)]
     pub fn send_signal(&self, pid: u32, signal: ProcessSignal) -> Result<bool, String> {
         let sysinfo_pid = Pid::from_u32(pid);
-        
+
         if let Some(process) = self.system.process(sysinfo_pid) {
             match process.kill_with(signal.to_sysinfo_signal()) {
                 Some(true) => Ok(true),
@@ -306,7 +307,7 @@ impl ProcessMonitor {
             Err("Process not found".to_string())
         }
     }
-    
+
     /// Kill a process (SIGTERM by default, SIGKILL if force)
     #[allow(dead_code)]
     pub fn kill_process(&self, pid: u32, force: bool) -> Result<bool, String> {
@@ -317,7 +318,7 @@ impl ProcessMonitor {
         };
         self.send_signal(pid, signal)
     }
-    
+
     #[allow(dead_code)]
     pub fn get_process_count(&self) -> usize {
         self.system.processes().len()

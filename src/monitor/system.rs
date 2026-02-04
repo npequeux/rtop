@@ -17,8 +17,7 @@ impl SystemMonitor {
     }
 
     pub fn hostname(&self) -> String {
-        System::host_name()
-            .unwrap_or_else(|| "Unknown".to_string())
+        System::host_name().unwrap_or_else(|| "Unknown".to_string())
     }
 
     pub fn os_version(&self) -> String {
@@ -30,8 +29,7 @@ impl SystemMonitor {
     }
 
     pub fn kernel_version(&self) -> String {
-        System::kernel_version()
-            .unwrap_or_else(|| "Unknown".to_string())
+        System::kernel_version().unwrap_or_else(|| "Unknown".to_string())
     }
 
     pub fn uptime(&self) -> u64 {

@@ -2,19 +2,19 @@ pub fn format_bytes(bytes: u64, decimal: bool) -> String {
     if bytes == 0 {
         return "0.00 B".to_string();
     }
-    
+
     let base = if decimal { 1000.0 } else { 1024.0 };
     let units = if decimal {
         vec!["B", "KB", "MB", "GB", "TB", "PB"]
     } else {
         vec!["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
     };
-    
+
     let exp = (bytes as f64).log(base).floor() as usize;
     let exp = exp.min(units.len() - 1);
-    
+
     let value = bytes as f64 / base.powi(exp as i32);
-    
+
     format!("{:.2} {}", value, units[exp])
 }
 

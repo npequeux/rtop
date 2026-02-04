@@ -11,9 +11,9 @@ impl BatteryMonitor {
     pub fn new() -> Self {
         let manager = Manager::new().ok();
         let battery = manager.as_ref().and_then(|m| {
-            m.batteries().ok().and_then(|mut batteries| {
-                batteries.next().and_then(|b| b.ok())
-            })
+            m.batteries()
+                .ok()
+                .and_then(|mut batteries| batteries.next().and_then(|b| b.ok()))
         });
 
         Self {

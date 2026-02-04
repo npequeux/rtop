@@ -94,3 +94,67 @@ impl Cli {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_duration_seconds() {
+        assert_eq!(
+            Cli::parse_duration("30s").unwrap(),
+            std::time::Duration::from_secs(30)
+        );
+        assert_eq!(
+            Cli::parse_duration("60s").unwrap(),
+            std::time::Duration::from_secs(60)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_minutes() {
+        assert_eq!(
+            Cli::parse_duration("5m").unwrap(),
+            std::time::Duration::from_secs(300)
+        );
+        assert_eq!(
+            Cli::parse_duration("30m").unwrap(),
+            std::time::Duration::from_secs(1800)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_hours() {
+        assert_eq!(
+            Cli::parse_duration("1h").unwrap(),
+            std::time::Duration::from_secs(3600)
+        );
+        assert_eq!(
+            Cli::parse_duration("2h").unwrap(),
+            std::time::Duration::from_secs(7200)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_no_suffix() {
+        assert_eq!(
+            Cli::parse_duration("45").unwrap(),
+            std::time::Duration::from_secs(45)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_with_whitespace() {
+        assert_eq!(
+            Cli::parse_duration("  10s  ").unwrap(),
+            std::time::Duration::from_secs(10)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_invalid() {
+        assert!(Cli::parse_duration("invalid").is_err());
+        assert!(Cli::parse_duration("abc").is_err());
+        assert!(Cli::parse_duration("").is_err());
+    }
+}

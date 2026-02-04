@@ -1,8 +1,8 @@
 # Creating GitHub Release for v3.0.0
 
-## Steps to create the release:
+## Steps to create the release
 
-1. Go to https://github.com/npequeux/rtop/releases/new
+1. Go to <https://github.com/npequeux/rtop/releases/new>
 2. Click "Choose a tag" and select `v3.0.0`
 3. Set Release title: `v3.0.0 - GPU & NPU Support`
 4. Use the following release notes:
@@ -66,9 +66,7 @@ sudo cp target/release/rtop /usr/local/bin/
 - Optional: `nvidia-smi` for NVIDIA GPU support
 - Optional: `rocm-smi` for AMD GPU support
 
----
-
-5. Check "Set as the latest release"
-6. Click "Publish release"
+1. Check "Set as the latest release"
+2. Click "Publish release"
 
 The release will be live and visible to all visitors!

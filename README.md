@@ -25,6 +25,7 @@ See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 ## Features
 
 ### Core Monitoring
+
 - **Real-time CPU monitoring**: Track CPU usage for all cores with Braille/Unicode historical graphs
 - **Memory & Swap monitoring**: Visual gauges and historical charts with color gradients
 - **GPU monitoring**: NVIDIA/AMD GPU utilization, memory, temperature, and power (NEW!)
@@ -37,6 +38,7 @@ See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 - **System information**: Hostname, OS, kernel version, uptime, and load averages
 
 ### Interactive Features (v3.0)
+
 - **Mouse Support**: Scroll process list with mouse wheel, click to select processes
 - **Multi-page Navigation**: Switch between Overview, Processes, Network, and Storage pages with F2-F5
 - **Process Scrolling**: Navigate with ↑↓ arrows, PageUp/PageDown, Home/End keys
@@ -47,6 +49,7 @@ See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 - **GPU Display**: Real-time GPU utilization, memory, temperature with graphs (NEW!)
 
 ### Advanced Graphics & Theming (NEW!)
+
 - **Braille Graphs**: High-resolution unicode graphs (⣿⣾⣶⣦) with 2x data density
 - **Multiple Graph Styles**: Braille, Block, TTY-compatible rendering
 - **Color Gradients**: 101-step smooth color transitions for all metrics
@@ -55,6 +58,7 @@ See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 - **Gradient Meters**: Color-coded meters showing warning/critical zones
 
 ### Advanced Features
+
 - **Help overlay**: Press `h` or `F1` for interactive help screen with all shortcuts
 - **Pause/Resume**: Space bar to freeze display updates
 - **Configurable thresholds**: Customize warning and critical levels
@@ -122,6 +126,7 @@ rtop export -o data.json -f json     # Export metrics to file
 ### Keyboard Shortcuts
 
 #### Navigation & Control
+
 - `q`, `Esc`, or `Ctrl+C`: Quit the application
 - `h` or `F1`: Toggle help screen
 - `F2` - `F5`: Switch pages (Overview / Processes / Network / Storage)
@@ -129,6 +134,7 @@ rtop export -o data.json -f json     # Export metrics to file
 - `r`: Force refresh all monitors
 
 #### Process Management
+
 - `↑` `↓`: Navigate up/down in process list
 - `PgUp` / `PgDn`: Scroll page up/down (10 processes)
 - `Home` / `End`: Jump to first/last process
@@ -137,11 +143,13 @@ rtop export -o data.json -f json     # Export metrics to file
 - **Mouse**: Scroll with wheel, click to select
 
 #### Process Sorting
+
 - `p`: Sort processes by PID
 - `c`: Sort processes by CPU usage
 - `m`: Sort processes by Memory usage
 
 #### Data Export
+
 - `e`: Export current metrics to configured file
 
 ## Configuration
@@ -210,6 +218,7 @@ rtop features a modern, color-coded interface with:
 The project is organized into several modules:
 
 ### Core Modules
+
 - **monitor/**: System information collection
   - `cpu.rs`: CPU usage monitoring with per-core tracking
   - `memory.rs`: Memory and swap usage monitoring
@@ -220,6 +229,7 @@ The project is organized into several modules:
   - `system.rs`: System information (uptime, load, hostname)
 
 ### Application Modules
+
 - **ui.rs**: Terminal user interface with ratatui
   - Help overlay system
   - Pause/resume functionality
@@ -257,11 +267,13 @@ The project is organized into several modules:
 ## Export Formats
 
 ### JSON Export
+
 ```bash
 rtop --export metrics.json
 ```
 
 Example output:
+
 ```json
 {
   "timestamp": "2026-02-01T10:30:45+00:00",
@@ -286,11 +298,13 @@ Example output:
 ```
 
 ### CSV Export
+
 ```bash
 rtop --export metrics.csv -f csv
 ```
 
 Example output:
+
 ```csv
 timestamp,cpu_avg,memory_percent,swap_percent,network_rx_rate,network_tx_rate,uptime,load_1m,load_5m,load_15m
 2026-02-01T10:30:45+00:00,38.65,50.00,5.20,1048576.00,524288.00,86400,1.50,1.30,1.20
@@ -304,6 +318,7 @@ timestamp,cpu_avg,memory_percent,swap_percent,network_rx_rate,network_tx_rate,up
 - **Update latency**: <50ms for UI responsiveness
 
 Optimizations:
+
 - Fat LTO compilation
 - Single codegen unit
 - Minimal tokio features
@@ -416,14 +431,6 @@ cargo build --release
 cargo test
 ```
 
-## License
-
-MIT License - see LICENSE file for details
-
 ## Original Project
 
 This is a Rust reimplementation of [gtop](https://github.com/aksakalli/gtop) originally written in Node.js.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

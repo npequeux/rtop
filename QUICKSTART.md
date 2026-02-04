@@ -21,11 +21,13 @@ Press `h` for help, `Space` to pause, `q` to quit.
 ## Common Use Cases
 
 ### 1. Basic Monitoring
+
 ```bash
 rtop                    # Start with default settings
 ```
 
 ### 2. Custom Configuration
+
 ```bash
 # Generate config file
 rtop --generate-config
@@ -38,6 +40,7 @@ rtop
 ```
 
 ### 3. Export System Metrics
+
 ```bash
 # Export to JSON
 rtop --export metrics.json
@@ -50,6 +53,7 @@ rtop export -o data.json -f json
 ```
 
 ### 4. Monitoring Session
+
 ```bash
 # Run for 1 hour
 rtop --duration 1h
@@ -62,6 +66,7 @@ rtop --minimal
 ```
 
 ### 5. Scripting and Automation
+
 ```bash
 # Export metrics every 5 minutes (cron job)
 */5 * * * * /usr/local/bin/rtop --export /var/log/rtop/metrics-$(date +\%Y\%m\%d-\%H\%M).json
@@ -71,6 +76,7 @@ rtop --duration 60s --export final-metrics.json
 ```
 
 ### 6. Performance Tuning
+
 ```bash
 # Slower updates for lower CPU usage
 rtop --interval 5000
@@ -85,11 +91,13 @@ rtop show-config
 ## Keyboard Shortcuts
 
 ### Essential
+
 - `q` or `Esc` - Quit
 - `h` or `F1` - Help screen
 - `Space` - Pause/Resume
 
 ### Process Sorting
+
 - `p` - Sort by PID
 - `c` - Sort by CPU
 - `m` - Sort by Memory
@@ -97,6 +105,7 @@ rtop show-config
 ## Configuration Tips
 
 ### Adjust Refresh Rates
+
 Edit `~/.config/rtop/config.toml`:
 
 ```toml
@@ -106,6 +115,7 @@ disk = 5000    # Update disk every 5s (slower)
 ```
 
 ### Set Alert Thresholds
+
 ```toml
 [thresholds]
 cpu_critical = 90.0     # Alert when CPU > 90%
@@ -114,6 +124,7 @@ temp_critical = 85.0    # Critical temp at 85°C
 ```
 
 ### Customize Display
+
 ```toml
 [display]
 show_temperature = true     # Show temp panel
@@ -124,6 +135,7 @@ show_kernel_processes = false  # Hide kernel processes
 ## Troubleshooting
 
 ### No Temperature Sensors
+
 ```bash
 # Load kernel modules (Linux)
 sudo modprobe coretemp    # Intel
@@ -131,12 +143,14 @@ sudo modprobe k10temp     # AMD
 ```
 
 ### Permission Issues
+
 ```bash
 # Run with sudo if needed
 sudo rtop
 ```
 
 ### High CPU Usage
+
 ```bash
 # Use minimal mode
 rtop --minimal
@@ -148,6 +162,7 @@ rtop --interval 3000
 ## Advanced Usage
 
 ### Continuous Monitoring and Logging
+
 ```bash
 # Create log directory
 mkdir -p /var/log/rtop
@@ -163,6 +178,7 @@ log_interval = 10000
 ```
 
 ### Data Analysis
+
 ```bash
 # Export CSV for analysis
 rtop --export data.csv -f csv
@@ -175,6 +191,7 @@ rtop --export data.csv -f csv
 ```
 
 ### Integration with Monitoring Systems
+
 ```bash
 # Export JSON for Prometheus/Grafana
 rtop --export /var/lib/node_exporter/rtop.json

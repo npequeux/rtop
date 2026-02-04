@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust-version: ["1.81.0", "stable", "beta"]
+        rust-version: ["1.88.0", "stable", "beta"]
         include: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rust-version != '' && fromJson(format('[{{"rust-version":"{0}","manual":true}}]', github.event.inputs.rust-version)) || fromJson('[]') }}
 
     steps:

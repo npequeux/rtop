@@ -5,18 +5,57 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      rust-version:
+        description: "Optional Rust toolchain to add to the test matrix"
+        required: false
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust-version: ["1.76.0", "stable", "beta"]
+        include: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rust-version != '' && fromJson(format('[{{"rust-version":"{0}","manual":true}}]', github.event.inputs.rust-version)) || fromJson('[]') }}
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.rust-version }}
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust-version }}
+          profile: minimal
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Build release artifact
+        run: cargo build --release --verbose
+
+      - name: Deploy
+        run: ./build.sh

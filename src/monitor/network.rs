@@ -122,7 +122,7 @@ impl NetworkMonitor {
     fn ping_host(&self, host: &str) -> Option<f32> {
         // Use ping command with 1 packet, 1 second timeout
         let output = Command::new("ping")
-            .args(&["-c", "1", "-W", "1", host])
+            .args(["-c", "1", "-W", "1", host])
             .output()
             .ok()?;
 

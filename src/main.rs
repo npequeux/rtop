@@ -21,7 +21,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{error, info};
-use tracing_subscriber;
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();

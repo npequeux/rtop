@@ -1,6 +1,5 @@
 /// Advanced graphics and symbol rendering for rtop
 /// Inspired by btop++'s sophisticated graphing capabilities
-
 /// Unicode symbols for drawing boxes and UI elements
 #[allow(dead_code)]
 pub mod symbols {
@@ -125,11 +124,7 @@ impl GraphRenderer {
 
         // Calculate how many data points fit in the width
         let data_len = data.len();
-        let data_offset = if data_len > self.width * 2 {
-            data_len - self.width * 2
-        } else {
-            0
-        };
+        let data_offset = data_len.saturating_sub(self.width * 2);
 
         let mut _last_value = if data_offset > 0 {
             data[data_offset - 1]
@@ -147,7 +142,7 @@ impl GraphRenderer {
             };
 
             // For each height level
-            for h in 0..self.height {
+            for (h, line) in output.iter_mut().enumerate().take(self.height) {
                 let cur_high = if self.height > 1 {
                     100.0 * (self.height - h) as f64 / self.height as f64
                 } else {
@@ -165,7 +160,7 @@ impl GraphRenderer {
 
                 // Combine into 5x5 symbol grid index
                 let symbol_idx = (idx1 * 5 + idx2).min(24);
-                output[h].push_str(symbols[symbol_idx]);
+                line.push_str(symbols[symbol_idx]);
             }
 
             _last_value = v2;
@@ -220,7 +215,7 @@ impl MeterRenderer {
             if i < filled {
                 output.push_str(symbols::METER);
             } else {
-                output.push_str("░");
+                output.push('░');
             }
         }
         output

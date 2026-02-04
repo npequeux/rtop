@@ -28,7 +28,7 @@ pub enum ProcessSignal {
 
 impl ProcessSignal {
     #[allow(dead_code)]
-    pub fn to_sysinfo_signal(&self) -> Signal {
+    pub fn to_sysinfo_signal(self) -> Signal {
         match self {
             ProcessSignal::Term => Signal::Term,
             ProcessSignal::Kill => Signal::Kill,
@@ -168,7 +168,7 @@ impl ProcessMonitor {
             if let Some(parent) = process.parent() {
                 self.process_tree
                     .entry(parent.as_u32())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(pid.as_u32());
             }
         }

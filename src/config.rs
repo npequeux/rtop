@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub refresh_rates: RefreshRates,
@@ -196,18 +196,6 @@ impl Default for ExportConfig {
             enable_logging: default_false(),
             log_path: None,
             log_interval: default_log_interval(),
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            refresh_rates: RefreshRates::default(),
-            colors: ColorConfig::default(),
-            display: DisplayConfig::default(),
-            thresholds: Thresholds::default(),
-            export: ExportConfig::default(),
         }
     }
 }

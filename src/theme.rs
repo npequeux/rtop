@@ -390,8 +390,10 @@ mod tests {
         let theme_name = manager.current().name.clone();
         assert_eq!(theme_name, "default");
 
-        let mut custom_theme = Theme::default();
-        custom_theme.name = "custom".to_string();
+        let custom_theme = Theme {
+            name: "custom".to_string(),
+            ..Theme::default()
+        };
         manager.add_theme(custom_theme);
 
         assert!(manager.set_theme("custom"));

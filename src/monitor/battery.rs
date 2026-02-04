@@ -46,7 +46,7 @@ impl BatteryMonitor {
     pub fn get_battery_info(&self) -> Option<BatteryInfo> {
         self.battery.as_ref().map(|b| {
             let state = b.state();
-            let percentage = (b.state_of_charge().value * 100.0) as f32;
+            let percentage = b.state_of_charge().value * 100.0;
             let time_to_full = b.time_to_full();
             let time_to_empty = b.time_to_empty();
             let energy_rate = b.energy_rate().value;
@@ -66,7 +66,7 @@ impl BatteryMonitor {
                 } else {
                     time_to_empty.map(|t| t.get::<battery::units::time::second>() as u64)
                 },
-                power_consumption: energy_rate as f32,
+                power_consumption: energy_rate,
             }
         })
     }

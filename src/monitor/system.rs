@@ -24,7 +24,7 @@ impl SystemMonitor {
         format!(
             "{} {}",
             System::name().unwrap_or_else(|| "Unknown".to_string()),
-            System::os_version().unwrap_or_else(|| "".to_string())
+            System::os_version().unwrap_or_default()
         )
     }
 

@@ -102,9 +102,9 @@ impl GpuMonitor {
 
     fn detect_nvidia(&mut self) -> bool {
         let output = Command::new("nvidia-smi")
-            .args(&[
+            .args([
                 "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,clocks.current.graphics,fan.speed",
-                "--format=csv,noheader,nounits"
+                "--format=csv,noheader,nounits",
             ])
             .output();
 
@@ -129,7 +129,7 @@ impl GpuMonitor {
 
     fn detect_amd(&mut self) -> bool {
         let output = Command::new("rocm-smi")
-            .args(&[
+            .args([
                 "--showid",
                 "--showuse",
                 "--showmeminfo",
@@ -161,7 +161,7 @@ impl GpuMonitor {
                 if path
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .map_or(false, |n| n.starts_with("card"))
+                    .is_some_and(|n| n.starts_with("card"))
                 {
                     let vendor_path = path.join("device/vendor");
                     if vendor_path.exists() {
@@ -202,9 +202,9 @@ impl GpuMonitor {
 
     fn update_nvidia(&mut self) {
         let output = Command::new("nvidia-smi")
-            .args(&[
+            .args([
                 "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,clocks.current.graphics,fan.speed",
-                "--format=csv,noheader,nounits"
+                "--format=csv,noheader,nounits",
             ])
             .output();
 
@@ -255,7 +255,7 @@ impl GpuMonitor {
         // AMD GPU update via rocm-smi
         // This is a simplified implementation - full implementation would parse rocm-smi output
         let output = Command::new("rocm-smi")
-            .args(&[
+            .args([
                 "--showid",
                 "--showuse",
                 "--showmeminfo",
@@ -444,7 +444,7 @@ impl GpuMonitor {
     fn read_intel_gpu_top() -> Option<Vec<GpuInfo>> {
         // Try to use intel_gpu_top in JSON mode for accurate metrics
         let output = Command::new("intel_gpu_top")
-            .args(&["-J", "-s", "100"]) // JSON output, 100ms sample
+            .args(["-J", "-s", "100"]) // JSON output, 100ms sample
             .output();
 
         if let Ok(output) = output {
@@ -626,9 +626,11 @@ mod tests {
 
     #[test]
     fn test_gpu_info_memory_percent() {
-        let mut gpu = GpuInfo::default();
-        gpu.memory_total = 1000;
-        gpu.memory_used = 500;
+        let gpu = GpuInfo {
+            memory_total: 1000,
+            memory_used: 500,
+            ..GpuInfo::default()
+        };
         assert_eq!(gpu.memory_percent(), 50);
     }
 

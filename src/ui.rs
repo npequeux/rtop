@@ -1223,10 +1223,7 @@ impl App {
 
         // Apply filter if active
         if let Some(ref regex) = self.process_filter_regex {
-            processes = processes
-                .into_iter()
-                .filter(|p| regex.is_match(&p.name))
-                .collect();
+            processes.retain(|p| regex.is_match(&p.name));
         }
 
         let total_processes = processes.len();

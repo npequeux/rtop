@@ -285,9 +285,15 @@ mod tests {
     fn test_refresh_durations() {
         let config = Config::default();
         assert_eq!(config.cpu_refresh_duration(), Duration::from_millis(1000));
-        assert_eq!(config.memory_refresh_duration(), Duration::from_millis(1000));
+        assert_eq!(
+            config.memory_refresh_duration(),
+            Duration::from_millis(1000)
+        );
         assert_eq!(config.disk_refresh_duration(), Duration::from_millis(2000));
-        assert_eq!(config.process_refresh_duration(), Duration::from_millis(2000));
+        assert_eq!(
+            config.process_refresh_duration(),
+            Duration::from_millis(2000)
+        );
     }
 
     #[test]
@@ -336,7 +342,7 @@ mod tests {
             [display]
             max_processes = 30
         "#;
-        
+
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.refresh_rates.cpu, 2000);
         assert_eq!(config.refresh_rates.memory, 1500);
@@ -351,7 +357,7 @@ mod tests {
             [colors]
             theme = "red"
         "#;
-        
+
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.colors.theme, "red");
         // Other values should use defaults

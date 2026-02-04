@@ -158,15 +158,13 @@ mod tests {
                 available: 250_000_000_000,
                 percent: 50.0,
             }],
-            processes: vec![
-                ProcessMetrics {
-                    pid: 1234,
-                    name: "test_process".to_string(),
-                    cpu: 10.5,
-                    memory: 1_000_000,
-                    memory_percent: 0.01,
-                },
-            ],
+            processes: vec![ProcessMetrics {
+                pid: 1234,
+                name: "test_process".to_string(),
+                cpu: 10.5,
+                memory: 1_000_000,
+                memory_percent: 0.01,
+            }],
             temperature: Some(TempMetrics {
                 sensors: vec![SensorMetric {
                     name: "CPU".to_string(),
@@ -189,12 +187,12 @@ mod tests {
     fn test_export_json() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("metrics.json");
-        
+
         let metrics = create_test_metrics();
         metrics.export_json(&file_path).unwrap();
-        
+
         assert!(file_path.exists());
-        
+
         let content = fs::read_to_string(&file_path).unwrap();
         assert!(content.contains("timestamp"));
         assert!(content.contains("2026-02-04T20:00:00Z"));
@@ -205,15 +203,15 @@ mod tests {
     fn test_export_csv() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("metrics.csv");
-        
+
         let metrics = create_test_metrics();
         metrics.export_csv(&file_path).unwrap();
-        
+
         assert!(file_path.exists());
-        
+
         let content = fs::read_to_string(&file_path).unwrap();
         let lines: Vec<&str> = content.lines().collect();
-        
+
         assert_eq!(lines.len(), 2); // Header + 1 data row
         assert!(lines[0].contains("timestamp"));
         assert!(lines[0].contains("cpu_avg"));
@@ -227,7 +225,7 @@ mod tests {
     fn test_metrics_serialization() {
         let metrics = create_test_metrics();
         let json = serde_json::to_string(&metrics).unwrap();
-        
+
         assert!(json.contains("timestamp"));
         assert!(json.contains("cpu"));
         assert!(json.contains("memory"));
@@ -253,7 +251,7 @@ mod tests {
                 "uptime": 1000, "load_average": [1.0, 1.0, 1.0]
             }
         }"#;
-        
+
         let metrics: Metrics = serde_json::from_str(json).unwrap();
         assert_eq!(metrics.timestamp, "2026-02-04T20:00:00Z");
         assert_eq!(metrics.cpu.average, 25.0);

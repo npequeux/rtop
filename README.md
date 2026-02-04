@@ -94,6 +94,8 @@ docker compose up
 
 ### Pre-built Binaries
 
+**Stable Releases:**
+
 Download from [GitHub Releases](https://github.com/npequeux/rtop/releases):
 
 - Linux x86_64: `rtop-linux-x86_64.tar.gz`
@@ -101,6 +103,12 @@ Download from [GitHub Releases](https://github.com/npequeux/rtop/releases):
 - macOS Intel: `rtop-macos-x86_64.tar.gz`
 - macOS Apple Silicon: `rtop-macos-aarch64.tar.gz`
 - Windows: `rtop-windows-x86_64.zip`
+
+**Nightly Builds:**
+
+Latest development builds from master branch:
+
+- [Download Nightly Builds](https://github.com/npequeux/rtop/releases/tag/nightly) (⚠️ may be unstable)
 
 ### From Source
 
@@ -457,6 +465,34 @@ cargo build --release
 ```bash
 cargo test
 ```
+
+## 📦 Resources & Artifacts
+
+### Documentation
+
+- 📚 [API Documentation](https://npequeux.github.io/rtop/rtop/) - Auto-generated Rust docs
+- 📖 [CI/CD Guide](.github/CICD.md) - Complete CI/CD documentation
+- 🚀 [Quick Start](QUICKSTART.md) - Get started quickly
+- 📝 [Changelog](CHANGELOG.md) - Version history
+
+### Downloads
+
+- 🎯 [Stable Releases](https://github.com/npequeux/rtop/releases) - Production-ready versions
+- 🌙 [Nightly Builds](https://github.com/npequeux/rtop/releases/tag/nightly) - Latest development builds
+- 🐳 [Docker Images](https://github.com/npequeux/rtop/pkgs/container/rtop) - Container images
+
+### Monitoring & Reports
+
+- 📊 [Code Coverage](https://codecov.io/gh/npequeux/rtop) - Test coverage reports
+- 🔒 [Security Advisories](https://github.com/npequeux/rtop/security/dependabot) - Dependency alerts
+- ⚡ [GitHub Actions](https://github.com/npequeux/rtop/actions) - CI/CD status & artifacts
+
+### Build Artifacts (from each CI run)
+
+- Binary packages for all platforms
+- Performance metrics & benchmarks
+- Code coverage reports
+- Changelog previews
 
 ## Original Project
 

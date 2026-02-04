@@ -335,6 +335,8 @@ jobs:
   changelog:
     needs: artifacts
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -358,3 +360,25 @@ jobs:
         with:
           name: changelog-preview
           path: CHANGELOG_preview.md
+
+      - name: Create workflow summary
+        if: github.ref == 'refs/heads/master'
+        run: |
+          echo "# 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Binaries" >> $GITHUB_STEP_SUMMARY
+          echo "- [linux-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [linux-aarch64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [macos-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [macos-aarch64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [windows-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Reports" >> $GITHUB_STEP_SUMMARY
+          echo "- [Code Coverage](https://codecov.io/gh/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [API Documentation](https://npequeux.github.io/rtop/rtop/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Changelog Preview](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 Docker" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -8,7 +8,7 @@
 
 Advanced system monitoring dashboard for terminal written in Rust - **Now with btop++-inspired features!**
 
-## 🎉 NEW in v3.0 - btop++ Feature Parity
+## 🎉 NEW in v3.0
 
 rtop now includes advanced features inspired by btop++:
 

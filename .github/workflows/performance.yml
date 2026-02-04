@@ -94,6 +94,11 @@ jobs:
           name: performance-metrics
           path: metrics.md
 
+      - name: Fetch gh-pages branch
+        if: github.ref == 'refs/heads/master'
+        run: |
+          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages || true
+
       - name: Store benchmark result
         if: github.ref == 'refs/heads/master'
         uses: benchmark-action/github-action-benchmark@v1
@@ -103,6 +108,8 @@ jobs:
           output-file-path: metrics.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
           alert-threshold: '200%'
           comment-on-alert: true
           fail-on-alert: false

@@ -2,7 +2,7 @@
 
 ## Steps to create the release:
 
-1. Go to https://github.com/npequeux/mytop/releases/new
+1. Go to https://github.com/npequeux/rtop/releases/new
 2. Click "Choose a tag" and select `v3.0.0`
 3. Set Release title: `v3.0.0 - GPU & NPU Support`
 4. Use the following release notes:
@@ -52,15 +52,15 @@ rtop v3.0.0 brings comprehensive hardware acceleration monitoring to your termin
 
 ```bash
 # From source
-git clone https://github.com/npequeux/mytop.git
-cd mytop
+git clone https://github.com/npequeux/rtop.git
+cd rtop
 cargo build --release
 sudo cp target/release/rtop /usr/local/bin/
 ```
 
 ### 🎯 Requirements
 
-- Rust 1.70+
+- Rust 1.88+
 - Linux (primary support)
 - Optional: `intel_gpu_top` for accurate Intel GPU metrics
 - Optional: `nvidia-smi` for NVIDIA GPU support

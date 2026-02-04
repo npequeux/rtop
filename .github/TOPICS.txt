@@ -3,7 +3,7 @@ GitHub Repository Topics
 
 To add topics to your GitHub repository:
 
-1. Go to https://github.com/npequeux/mytop
+1. Go to https://github.com/npequeux/rtop
 2. Click "Settings" tab at the top
 3. Scroll down to the "Topics" section (should be near the top)
 4. Click the gear icon to edit topics

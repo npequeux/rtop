@@ -40,7 +40,13 @@ jobs:
         run: cargo test --verbose
 
   deploy:
-    needs: test
+    needs:
+      - test
+      - lint_format
+      - coverage
+      - docs
+      - cross
+      - artifacts
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
@@ -59,3 +65,197 @@ jobs:
 
       - name: Deploy
         run: ./build.sh
+
+  lint_format:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  coverage:
+    needs: lint_format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Add llvm-tools component
+        run: rustup component add llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: Generate coverage report
+        run: |
+          cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+
+  docs:
+    needs: coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: target/doc
+
+  cross:
+    needs: docs
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Build and test on ${{ matrix.os }}
+        run: |
+          cargo build --verbose
+          cargo test --verbose
+
+  artifacts:
+    needs: cross
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Build release binary
+        run: cargo build --release --verbose
+
+      - name: Package binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p artifacts
+          cp target/release/rtop artifacts/
+          tar czf rtop-${{ matrix.os }}.tar.gz -C artifacts rtop
+
+      - name: Package binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts
+          Copy-Item target/release/rtop.exe artifacts/
+          Compress-Archive -Path artifacts\rtop.exe -DestinationPath rtop-${{ matrix.os }}.zip
+
+      - name: Upload packaged binary (Unix)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtop-${{ matrix.os }}
+          path: rtop-${{ matrix.os }}.tar.gz
+
+      - name: Upload packaged binary (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtop-${{ matrix.os }}
+          path: rtop-${{ matrix.os }}.zip
+
+  dependabot_followup:
+    needs: test
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Run verification build
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --verbose
+
+      - name: Add ready label
+        if: github.actor == 'dependabot[bot]'
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: "dependencies-ready"
+
+  changelog:
+    needs: artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install git-cliff
+        run: cargo install git-cliff --locked
+
+      - name: Generate changelog draft
+        run: |
+          git cliff --include-path "src" --output CHANGELOG_preview.md
+
+      - name: Upload changelog draft
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-preview
+          path: CHANGELOG_preview.md

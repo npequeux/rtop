@@ -7,30 +7,35 @@ All notable changes to rtop will be documented in this file.
 ### Added
 
 #### Interactive Navigation
+
 - **Mouse Support**: Scroll process list with mouse wheel, click to select processes
 - **Multi-page Navigation**: F2-F5 keys to switch between Overview/Processes/Network/Storage pages
 - **Process Scrolling**: Arrow keys (↑↓), PageUp/PageDown, Home/End for process navigation
 - **Visual Indicators**: Selected process highlight and scroll position display
 
 #### Process Management
+
 - **Process Kill**: Press `k` to kill selected process with confirmation dialog
 - **Regex Filtering**: Press `/` to enter filter mode with regex pattern matching
 - **Filter Indicator**: Active filter displayed in footer bar
 - **Smart Selection**: Mouse and keyboard selection with visual feedback
 
 #### Hardware Monitoring
+
 - **Battery Monitor**: Display battery percentage, charging status, and time remaining
 - **Battery Icons**: Visual charging/discharging icons with color-coded percentage
 - **Disk I/O Stats**: Monitor read/write bytes per second (Linux /proc/diskstats)
 - **Per-interface Network**: Individual network interface statistics
 
 #### User Interface
+
 - **Page Indicators**: Current page displayed in header with F-key hints
 - **Confirmation Dialogs**: Safe process kill with Y/N confirmation
 - **Enhanced Footer**: Battery status, active filters, and more context
 - **Scrollbar Indicators**: Visual feedback for list position
 
 ### Changed
+
 - Upgraded crossterm to support mouse event handling (event-stream feature)
 - Enhanced help overlay with new navigation shortcuts
 - Improved process list rendering with selection highlighting

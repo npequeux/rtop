@@ -92,28 +92,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: performance-metrics
-          path: metrics.md
+          path: |
+            metrics.md
+            metrics.json
 
-      - name: Fetch gh-pages branch
-        if: github.ref == 'refs/heads/master'
-        run: |
-          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages || true
-
-      - name: Store benchmark result
-        if: github.ref == 'refs/heads/master'
-        uses: benchmark-action/github-action-benchmark@v1
+      - name: Deploy benchmark to Pages
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: Performance Metrics
-          tool: 'customSmallerIsBetter'
-          output-file-path: metrics.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench
-          alert-threshold: '200%'
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: '@npequeux'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          destination_dir: dev/bench
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Update benchmark results'
 
       - name: Comment PR with metrics
         if: github.event_name == 'pull_request'

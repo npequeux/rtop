@@ -32,17 +32,12 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.config.target }}
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.4
-
       - name: Install cross
         if: matrix.config.cross == true
         run: cargo install cross --locked
 
       - name: Build release binary (native)
         if: matrix.config.cross != true
-        env:
-          RUSTC_WRAPPER: sccache
         run: cargo build --release --target ${{ matrix.config.target }} --verbose
 
       - name: Build release binary (cross)

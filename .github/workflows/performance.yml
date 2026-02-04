@@ -23,12 +23,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.4
-
       - name: Build release
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           time cargo build --release --verbose 2>&1 | tee build.log
 

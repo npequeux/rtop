@@ -7,6 +7,7 @@
 [![codecov](https://codecov.io/gh/npequeux/rtop/branch/master/graph/badge.svg)](https://codecov.io/gh/npequeux/rtop)
 [![GitHub release](https://img.shields.io/github/v/release/npequeux/rtop.svg)](https://github.com/npequeux/rtop/releases)
 [![Docker Image](https://ghcr-badge.egpl.dev/npequeux/rtop/latest_tag?trim=major&label=docker)](https://github.com/npequeux/rtop/pkgs/container/rtop)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://npequeux.github.io/rtop/rtop/)
 [![GitHub stars](https://img.shields.io/github/stars/npequeux/rtop.svg?style=social)](https://github.com/npequeux/rtop)
 
 Advanced system monitoring dashboard for terminal written in Rust - **Now with btop++-inspired features!**

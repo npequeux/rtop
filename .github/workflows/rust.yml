@@ -5,16 +5,16 @@ on:
     branches: [ "master" ]
     paths-ignore:
       - '**.md'
+      - '!.github/**.md'
       - 'LICENSE'
       - '.gitignore'
-      - 'CHANGELOG.md'
   pull_request:
     branches: [ "master" ]
     paths-ignore:
       - '**.md'
+      - '!.github/**.md'
       - 'LICENSE'
       - '.gitignore'
-      - 'CHANGELOG.md'
   workflow_dispatch:
     inputs:
       rust-version:

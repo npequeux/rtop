@@ -192,7 +192,9 @@ jobs:
     needs: coverage
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      pages: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -207,19 +209,20 @@ jobs:
           cargo doc --no-deps --all-features
           echo '<meta http-equiv="refresh" content="0; url=rtop">' > target/doc/index.html
 
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/master'
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: docs-html
-          path: target/doc
+          path: './target/doc'
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/master'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/doc
-          cname: false
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   cross:
     needs: docs

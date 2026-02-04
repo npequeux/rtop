@@ -100,6 +100,7 @@ Download from [GitHub Releases](https://github.com/npequeux/rtop/releases):
 
 - Linux x86_64: `rtop-linux-x86_64.tar.gz`
 - Linux ARM64: `rtop-linux-aarch64.tar.gz`
+- Linux ARMv7 (32-bit): `rtop-linux-armv7.tar.gz`
 - macOS Intel: `rtop-macos-x86_64.tar.gz`
 - macOS Apple Silicon: `rtop-macos-aarch64.tar.gz`
 - Windows: `rtop-windows-x86_64.zip`

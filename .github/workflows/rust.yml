@@ -257,6 +257,7 @@ jobs:
         config:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x86_64 }
           - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, name: linux-aarch64, cross: true }
+          - { os: ubuntu-latest, target: armv7-unknown-linux-gnueabihf, name: linux-armv7, cross: true }
           - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x86_64 }
           - { os: macos-latest, target: aarch64-apple-darwin, name: macos-aarch64 }
           - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x86_64 }
@@ -372,6 +373,7 @@ jobs:
           echo "## 🚀 Binaries" >> $GITHUB_STEP_SUMMARY
           echo "- [linux-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [linux-aarch64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [linux-armv7](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [macos-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [macos-aarch64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- [windows-x86_64](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY

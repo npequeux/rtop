@@ -210,11 +210,16 @@ jobs:
 
   artifacts:
     needs: cross
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        config:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x86_64 }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, name: linux-aarch64, cross: true }
+          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x86_64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-aarch64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x86_64 }
 
     steps:
       - uses: actions/checkout@v4
@@ -223,37 +228,47 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
+          targets: ${{ matrix.config.target }}
 
-      - name: Build release binary
-        run: cargo build --release --verbose
+      - name: Install cross
+        if: matrix.config.cross == true
+        run: cargo install cross --locked
+
+      - name: Build release binary (native)
+        if: matrix.config.cross != true
+        run: cargo build --release --target ${{ matrix.config.target }} --verbose
+
+      - name: Build release binary (cross)
+        if: matrix.config.cross == true
+        run: cross build --release --target ${{ matrix.config.target }} --verbose
 
       - name: Package binary (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.config.os != 'windows-latest'
         run: |
           mkdir -p artifacts
-          cp target/release/rtop artifacts/
-          tar czf rtop-${{ matrix.os }}.tar.gz -C artifacts rtop
+          cp target/${{ matrix.config.target }}/release/rtop artifacts/
+          tar czf rtop-${{ matrix.config.name }}.tar.gz -C artifacts rtop
 
       - name: Package binary (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.config.os == 'windows-latest'
         run: |
           New-Item -ItemType Directory -Force -Path artifacts
-          Copy-Item target/release/rtop.exe artifacts/
-          Compress-Archive -Path artifacts\rtop.exe -DestinationPath rtop-${{ matrix.os }}.zip
+          Copy-Item target/${{ matrix.config.target }}/release/rtop.exe artifacts/
+          Compress-Archive -Path artifacts\rtop.exe -DestinationPath rtop-${{ matrix.config.name }}.zip
 
       - name: Upload packaged binary (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.config.os != 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: rtop-${{ matrix.os }}
-          path: rtop-${{ matrix.os }}.tar.gz
+          name: rtop-${{ matrix.config.name }}
+          path: rtop-${{ matrix.config.name }}.tar.gz
 
       - name: Upload packaged binary (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.config.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: rtop-${{ matrix.os }}
-          path: rtop-${{ matrix.os }}.zip
+          name: rtop-${{ matrix.config.name }}
+          path: rtop-${{ matrix.config.name }}.zip
 
   dependabot_followup:
     needs: test

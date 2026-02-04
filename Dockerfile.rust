@@ -1,29 +1,45 @@
 # Multi-stage build for rtop
-FROM rust:1.93-slim as builder
+FROM rust:1.88-slim as builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/rtop
 
-# Copy manifests
-COPY Cargo.toml ./
+# Copy manifests first for better layer caching
+COPY Cargo.toml Cargo.lock ./
 
-# Copy source
+# Create a dummy main to cache dependencies
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# Copy actual source
 COPY src ./src
 
-# Build the application
-RUN cargo build --release
+# Build the application (dependencies already cached)
+RUN touch src/main.rs && \
+    cargo build --release && \
+    strip target/release/rtop
 
 # Runtime stage
 FROM debian:bookworm-slim
 
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN useradd -m -u 1000 rtop
+
 COPY --from=builder /usr/src/rtop/target/release/rtop /usr/local/bin/rtop
+
+USER rtop
 
 CMD ["rtop"]

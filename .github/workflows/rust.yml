@@ -29,7 +29,6 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 jobs:
   test:
@@ -50,6 +49,7 @@ jobs:
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.4
+        continue-on-error: true
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -70,7 +70,10 @@ jobs:
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
+        env:
+          RUSTC_WRAPPER: sccache
         run: cargo build --verbose
+        continue-on-error: false
 
       - name: Run tests
         run: cargo test --verbose

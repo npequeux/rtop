@@ -2,8 +2,11 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
-[![Build Status](https://github.com/npequeux/rtop/workflows/rust/badge.svg)](https://github.com/npequeux/rtop/actions)
+[![Build Status](https://github.com/npequeux/rtop/workflows/Rust/badge.svg)](https://github.com/npequeux/rtop/actions)
+[![Docker](https://github.com/npequeux/rtop/workflows/Docker/badge.svg)](https://github.com/npequeux/rtop/actions)
+[![codecov](https://codecov.io/gh/npequeux/rtop/branch/master/graph/badge.svg)](https://codecov.io/gh/npequeux/rtop)
 [![GitHub release](https://img.shields.io/github/v/release/npequeux/rtop.svg)](https://github.com/npequeux/rtop/releases)
+[![Docker Image](https://ghcr-badge.egpl.dev/npequeux/rtop/latest_tag?trim=major&label=docker)](https://github.com/npequeux/rtop/pkgs/container/rtop)
 [![GitHub stars](https://img.shields.io/github/stars/npequeux/rtop.svg?style=social)](https://github.com/npequeux/rtop)
 
 Advanced system monitoring dashboard for terminal written in Rust - **Now with btop++-inspired features!**
@@ -75,10 +78,33 @@ See [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) for complete documentation.
 
 ## Installation
 
+### Docker (Recommended)
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/npequeux/rtop:latest
+
+# Run with host access
+docker run -it --rm --pid=host --privileged ghcr.io/npequeux/rtop:latest
+
+# Or use docker compose (see docker-compose.yml)
+docker compose up
+```
+
+### Pre-built Binaries
+
+Download from [GitHub Releases](https://github.com/npequeux/rtop/releases):
+
+- Linux x86_64: `rtop-linux-x86_64.tar.gz`
+- Linux ARM64: `rtop-linux-aarch64.tar.gz`
+- macOS Intel: `rtop-macos-x86_64.tar.gz`
+- macOS Apple Silicon: `rtop-macos-aarch64.tar.gz`
+- Windows: `rtop-windows-x86_64.zip`
+
 ### From Source
 
 ```bash
-git clone <your-repo>
+git clone https://github.com/npequeux/rtop.git
 cd rtop
 cargo build --release
 sudo cp target/release/rtop /usr/local/bin/

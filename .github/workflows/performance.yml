@@ -1,0 +1,97 @@
+name: Performance
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.4
+
+      - name: Build release
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          time cargo build --release --verbose 2>&1 | tee build.log
+
+      - name: Collect binary size
+        run: |
+          ls -lh target/release/rtop
+          size target/release/rtop
+          
+          # Create metrics file
+          echo "# Binary Size Report" > metrics.md
+          echo "" >> metrics.md
+          echo "\`\`\`" >> metrics.md
+          ls -lh target/release/rtop >> metrics.md
+          echo "" >> metrics.md
+          size target/release/rtop >> metrics.md
+          echo "\`\`\`" >> metrics.md
+
+      - name: Strip binary and measure
+        run: |
+          strip target/release/rtop
+          echo "" >> metrics.md
+          echo "## After stripping:" >> metrics.md
+          echo "\`\`\`" >> metrics.md
+          ls -lh target/release/rtop >> metrics.md
+          echo "\`\`\`" >> metrics.md
+
+      - name: Measure startup time
+        run: |
+          echo "" >> metrics.md
+          echo "## Startup Performance:" >> metrics.md
+          echo "\`\`\`" >> metrics.md
+          for i in {1..5}; do
+            /usr/bin/time -v timeout 1s target/release/rtop 2>&1 | grep "Elapsed" || true
+          done >> metrics.md
+          echo "\`\`\`" >> metrics.md
+
+      - name: Measure memory usage
+        run: |
+          echo "" >> metrics.md
+          echo "## Memory Usage:" >> metrics.md
+          echo "\`\`\`" >> metrics.md
+          timeout 5s /usr/bin/time -v target/release/rtop 2>&1 | grep -E "Maximum resident|Average resident" || true
+          echo "\`\`\`" >> metrics.md
+
+      - name: Display metrics
+        run: cat metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-metrics
+          path: metrics.md
+
+      - name: Comment PR with metrics
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const metrics = fs.readFileSync('metrics.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: metrics
+            });

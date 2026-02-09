@@ -20,6 +20,22 @@ A fresh git history was created locally with commit `7d02eb1` containing all cur
 
 **Current State**: The branch still contains the full history with multiple contributors.
 
+## Important Legal Consideration
+
+⚠️ **NOTE**: This project appears to be a Rust rewrite of the original gtop (Node.js) project. While the current implementation is a complete rewrite in Rust with no shared code, it was originally inspired by gtop's concept.
+
+**Legal Assessment**:
+- ✅ The Rust code is entirely new and does not contain any of the original Node.js code
+- ✅ System monitoring tool concepts are not copyrightable
+- ✅ MIT License allows derivative works and modifications
+- ⚠️ If you consider this a "derivative work", the MIT License typically requires preserving the original copyright notice
+
+**Options**:
+1. **Treat as independent work** (current approach): Since this is a complete Rust rewrite with no shared code, you can license it solely under your copyright
+2. **Dual copyright**: Add both copyrights to LICENSE if you want to acknowledge the original inspiration
+
+The choice is yours based on how you view the relationship between this project and the original gtop.
+
 ## Required Manual Steps
 
 To complete the history reset, you need to manually force push a fresh history. Here's how:

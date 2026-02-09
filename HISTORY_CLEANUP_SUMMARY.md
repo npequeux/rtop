@@ -27,10 +27,12 @@ PR #8 attempted to clean this history but didn't fully succeed - it created a gr
 ## Solution
 Created a clean git history using git plumbing commands:
 
-1. Extracted the file tree from the current master branch
-2. Created a single new commit with that tree
-3. Set the author to Nicolas Pequeux (44464592+npequeux@users.noreply.github.com)
+1. Set git author configuration to Nicolas Pequeux
+2. Extracted the file tree from the current default branch
+3. Created a single new commit with that tree (author automatically set from git config)
 4. Reset the branch to point to this new commit
+
+> **Note**: This repository uses `master` as the default branch name. If your repository uses `main`, replace `master` with `main` in all commands below.
 
 ## Result
 - **Before**: 176 commits, 16+ contributors
@@ -40,11 +42,17 @@ Created a clean git history using git plumbing commands:
 
 ## Git Commands Used
 ```bash
+# Set author credentials (required before creating commit)
+git config user.name "Nicolas Pequeux"
+git config user.email "44464592+npequeux@users.noreply.github.com"
+
 # Create clean commit from master's file tree
 TREE=$(git rev-parse origin/master^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
 ```
+
+> **Note**: `git commit-tree` uses the author from git config. The environment variables `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL` can also be used to override git config if needed.
 
 ## Testing Done
 - ✅ Created clean commit with only Nicolas Pequeux as author
@@ -68,7 +76,11 @@ This is why **manual force push is required** to replace the history rather than
 Execute these commands locally to clean the entire repository:
 
 ```bash
-# Clean master branch
+# Set author credentials
+git config user.name "Nicolas Pequeux"
+git config user.email "44464592+npequeux@users.noreply.github.com"
+
+# Clean master branch (or main if that's your default branch)
 git fetch origin
 git checkout master
 git pull origin master
@@ -90,6 +102,11 @@ git push --force origin <branch-name>
 To apply the clean history to just this PR branch:
 
 ```bash
+# Set author credentials
+git config user.name "Nicolas Pequeux"
+git config user.email "44464592+npequeux@users.noreply.github.com"
+
+# Clean the PR branch
 git fetch origin
 git checkout copilot/reopen-pull-request-8
 git reset --hard origin/master

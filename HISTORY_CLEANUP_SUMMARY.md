@@ -57,7 +57,7 @@ git reset --hard $COMMIT
 
 ## Testing Done
 - ✅ Created clean commit with only Nicolas Pequeux as author
-- ✅ Verified content matches master branch exactly (git diff showed no changes)
+- ✅ Verified content matches default branch exactly (git diff showed no changes)
 - ✅ Tested build with `cargo check` - passed successfully
 - ✅ Confirmed contributor count: 1 (Nicolas Pequeux only)
 - ✅ Confirmed commit count: 1 (down from 176)
@@ -134,7 +134,8 @@ git shortlog -sn
 git log --oneline
 # Output: ca04cb0 Initial commit - rtop system monitoring dashboard
 
-# Verify content matches the default branch (replace master with main if needed)
+# Verify content matches the default branch
+# Replace 'master' with 'main' if that's your default branch name
 git diff --stat origin/master HEAD
 # Output: (no diff - content is identical)
 ```

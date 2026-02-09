@@ -47,7 +47,7 @@ git config user.name "Nicolas Pequeux"
 git config user.email "44464592+npequeux@users.noreply.github.com"
 
 # Create clean commit from current branch's file tree
-# Note: Using HEAD after checkout/pull ensures we're working with the local branch
+# Note: Using HEAD ensures we work with the current branch state
 TREE=$(git rev-parse HEAD^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
@@ -135,7 +135,7 @@ git log --oneline
 # Output: ca04cb0 Initial commit - rtop system monitoring dashboard
 
 # Verify content matches the default branch
-# Replace 'master' with 'main' if that's your default branch name
+# Note: Replace both occurrences of 'master' with 'main' if that's your default branch
 git diff --stat origin/master HEAD
 # Output: (no diff - content is identical)
 ```

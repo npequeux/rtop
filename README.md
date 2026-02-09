@@ -495,3 +495,6 @@ cargo test
 - Code coverage reports
 - Changelog previews
 
+## Original Project
+
+This is a Rust reimplementation of [gtop](https://github.com/aksakalli/gtop) originally written in Node.js.

@@ -1,8 +1,8 @@
 #### Environment
 
 - OS:
-- Rust version: (`$ rustc --version`)
-- rtop version: (`$ rtop --version`)
+- Node version: (`$ node --version`)
+- gtop version: (`$ npm info gtop version`)
 
 #### Description
 

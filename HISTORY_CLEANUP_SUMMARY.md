@@ -46,8 +46,9 @@ Created a clean git history using git plumbing commands:
 git config user.name "Nicolas Pequeux"
 git config user.email "44464592+npequeux@users.noreply.github.com"
 
-# Create clean commit from master's file tree
-TREE=$(git rev-parse origin/master^{tree})
+# Create clean commit from current branch's file tree
+# Note: Using HEAD after checkout/pull ensures we're working with the local branch
+TREE=$(git rev-parse HEAD^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
 ```
@@ -133,7 +134,7 @@ git shortlog -sn
 git log --oneline
 # Output: ca04cb0 Initial commit - rtop system monitoring dashboard
 
-# Verify content matches master
+# Verify content matches the default branch (replace master with main if needed)
 git diff --stat origin/master HEAD
-# Output: (no diff)
+# Output: (no diff - content is identical)
 ```

@@ -1,5 +1,9 @@
 # Git History Cleanup Summary
 
+## ⚠️ MANUAL ACTION REQUIRED
+
+This PR documents the git history cleanup process, but **the actual history rewrite requires manual execution** because it involves force-pushing which automated tools cannot perform safely.
+
 ## Objective
 Remove all git history before the Rust rewrite and show only `npequeux` as the contributor.
 
@@ -42,32 +46,65 @@ COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-t
 git reset --hard $COMMIT
 ```
 
-## Current Branch State
-- Branch: `copilot/reopen-pull-request-8`
-- Commit SHA: `ca04cb070f3ca45a248cd45013bb390c681f737c`
-- Commit message: "Initial commit - rtop system monitoring dashboard"
-- Author: Nicolas Pequeux <44464592+npequeux@users.noreply.github.com>
-- Committer: Nicolas Pequeux <44464592+npequeux@users.noreply.github.com>
+## Testing Done
+- ✅ Created clean commit with only Nicolas Pequeux as author
+- ✅ Verified content matches master branch exactly (git diff showed no changes)
+- ✅ Tested build with `cargo check` - passed successfully
+- ✅ Confirmed contributor count: 1 (Nicolas Pequeux only)
+- ✅ Confirmed commit count: 1 (down from 176)
 
-## Next Steps
-To apply this to all branches in the repository:
+## Why Automated Push Failed
+The standard git push mechanism (used by report_progress tool) preserves history and performs fast-forward merges. When history is rewritten:
+1. The tool attempts to rebase changes on top of the remote branch
+2. Git detects the new commit has the same content as an existing commit
+3. Git skips the "duplicate" commit during rebase
+4. Result: The clean commit is discarded and old history is preserved
 
-1. **For the master branch**:
-   ```bash
-   git checkout master
-   TREE=$(git rev-parse master^{tree})
-   COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
-   git reset --hard $COMMIT
-   git push --force origin master
-   ```
+This is why **manual force push is required** to replace the history rather than append to it.
 
-2. **For other branches**: Repeat the same process for each branch
+## Manual Steps Required
 
-3. **Important Notes**:
-   - This requires force push which rewrites history
-   - All contributors will need to re-clone or reset their local repositories
-   - Any open PRs will need to be recreated
-   - GitHub will show the old history is still accessible through SHA references for a while
+### Option 1: Clean All Branches (Recommended)
+Execute these commands locally to clean the entire repository:
+
+```bash
+# Clean master branch
+git fetch origin
+git checkout master
+git pull origin master
+TREE=$(git rev-parse master^{tree})
+COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
+git reset --hard $COMMIT
+git push --force origin master
+
+# Clean any other branches you want to keep
+# Repeat for each branch:
+git checkout <branch-name>
+TREE=$(git rev-parse <branch-name>^{tree})
+COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
+git reset --hard $COMMIT
+git push --force origin <branch-name>
+```
+
+### Option 2: Clean This PR Branch Only
+To apply the clean history to just this PR branch:
+
+```bash
+git fetch origin
+git checkout copilot/reopen-pull-request-8
+git reset --hard origin/master
+TREE=$(git rev-parse origin/master^{tree})
+COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
+git reset --hard $COMMIT
+git push --force origin copilot/reopen-pull-request-8
+```
+
+### Important Warnings:
+- ⚠️ **This rewrites history** - This is a destructive operation
+- ⚠️ **Force push required** - Standard push will not work
+- ⚠️ **All contributors affected** - Anyone with local clones will need to re-clone or reset
+- ⚠️ **Open PRs impacted** - Existing PRs will need to be recreated
+- ⚠️ **Irreversible** - Old history becomes orphaned (still accessible by SHA for ~90 days)
 
 ## Verification
 ```bash

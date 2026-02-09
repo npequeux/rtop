@@ -37,7 +37,7 @@ Created a clean git history using git plumbing commands:
 ## Result
 - **Before**: 176 commits, 16+ contributors
 - **After**: 1 commit, 1 contributor (Nicolas Pequeux)
-- **Content**: Identical to master branch (verified with git diff)
+- **Content**: Identical to default branch (verified with git diff)
 - **Build**: Verified working (cargo check passed)
 
 ## Git Commands Used
@@ -85,7 +85,7 @@ git config user.email "44464592+npequeux@users.noreply.github.com"
 git fetch origin
 git checkout master
 git pull origin master
-TREE=$(git rev-parse master^{tree})
+TREE=$(git rev-parse HEAD^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
 git push --force origin master
@@ -93,7 +93,7 @@ git push --force origin master
 # Clean any other branches you want to keep
 # Repeat for each branch:
 git checkout <branch-name>
-TREE=$(git rev-parse <branch-name>^{tree})
+TREE=$(git rev-parse HEAD^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
 git push --force origin <branch-name>
@@ -110,8 +110,8 @@ git config user.email "44464592+npequeux@users.noreply.github.com"
 # Clean the PR branch
 git fetch origin
 git checkout copilot/reopen-pull-request-8
-git reset --hard origin/master
-TREE=$(git rev-parse origin/master^{tree})
+git reset --hard origin/master  # or origin/main if that's your default
+TREE=$(git rev-parse HEAD^{tree})
 COMMIT=$(echo "Initial commit - rtop system monitoring dashboard" | git commit-tree $TREE)
 git reset --hard $COMMIT
 git push --force origin copilot/reopen-pull-request-8

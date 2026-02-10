@@ -232,16 +232,12 @@ impl GpuMonitor {
                         // Update history
                         if idx < self.utilization_history.len() {
                             let hist = &mut self.utilization_history[idx];
+                            hist.pop_front();
                             hist.push_back(gpu_info.utilization as f64);
-                            if hist.len() >= HISTORY_SIZE {
-                                hist.pop_front();
-                            }
 
                             let mem_hist = &mut self.memory_history[idx];
+                            mem_hist.pop_front();
                             mem_hist.push_back(gpu_info.memory_percent() as f64);
-                            if mem_hist.len() >= HISTORY_SIZE {
-                                mem_hist.pop_front();
-                            }
                         }
 
                         self.gpus.push(gpu_info);
@@ -282,16 +278,12 @@ impl GpuMonitor {
             for (idx, info) in intel_info.iter().enumerate() {
                 if idx < self.utilization_history.len() {
                     let hist = &mut self.utilization_history[idx];
+                    hist.pop_front();
                     hist.push_back(info.utilization as f64);
-                    if hist.len() >= HISTORY_SIZE {
-                        hist.pop_front();
-                    }
 
                     let mem_hist = &mut self.memory_history[idx];
+                    mem_hist.pop_front();
                     mem_hist.push_back(info.memory_percent() as f64);
-                    if mem_hist.len() >= HISTORY_SIZE {
-                        mem_hist.pop_front();
-                    }
                 }
                 self.gpus.push(info.clone());
             }
@@ -340,16 +332,12 @@ impl GpuMonitor {
                                 // Update history
                                 if gpu_idx < self.utilization_history.len() {
                                     let hist = &mut self.utilization_history[gpu_idx];
+                                    hist.pop_front();
                                     hist.push_back(utilization as f64);
-                                    if hist.len() >= HISTORY_SIZE {
-                                        hist.pop_front();
-                                    }
 
                                     let mem_hist = &mut self.memory_history[gpu_idx];
+                                    mem_hist.pop_front();
                                     mem_hist.push_back(0.0);
-                                    if mem_hist.len() >= HISTORY_SIZE {
-                                        mem_hist.pop_front();
-                                    }
                                 }
 
                                 self.gpus.push(gpu_info);

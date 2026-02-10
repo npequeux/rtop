@@ -1,6 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use sysinfo::Components;
 
+const HISTORY_SIZE: usize = 60;
+
 pub struct TempMonitor {
     components: Components,
     history: HashMap<String, VecDeque<f32>>, // History per component
@@ -48,12 +50,10 @@ impl TempMonitor {
                 let history = self
                     .history
                     .entry(label)
-                    .or_insert_with(|| VecDeque::with_capacity(61));
+                    .or_insert_with(|| VecDeque::from(vec![0.0; HISTORY_SIZE]));
 
+                history.pop_front();
                 history.push_back(temp);
-                if history.len() > 61 {
-                    history.pop_front();
-                }
             }
         }
     }

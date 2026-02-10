@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
-const HISTORY_SIZE: usize = 61;
+const HISTORY_SIZE: usize = 60;
 
 pub struct CpuMonitor {
     system: System,

@@ -115,9 +115,9 @@ impl GpuMonitor {
 
                 for _ in 0..count {
                     self.utilization_history
-                        .push(VecDeque::with_capacity(HISTORY_SIZE));
+                        .push(VecDeque::from(vec![0.0; HISTORY_SIZE]));
                     self.memory_history
-                        .push(VecDeque::with_capacity(HISTORY_SIZE));
+                        .push(VecDeque::from(vec![0.0; HISTORY_SIZE]));
                 }
 
                 return count > 0;
@@ -172,9 +172,9 @@ impl GpuMonitor {
                                 let device_path = path.join("device/device");
                                 if device_path.exists() {
                                     self.utilization_history
-                                        .push(VecDeque::with_capacity(HISTORY_SIZE));
+                                        .push(VecDeque::from(vec![0.0; HISTORY_SIZE]));
                                     self.memory_history
-                                        .push(VecDeque::with_capacity(HISTORY_SIZE));
+                                        .push(VecDeque::from(vec![0.0; HISTORY_SIZE]));
                                     return true;
                                 }
                             }
@@ -233,13 +233,13 @@ impl GpuMonitor {
                         if idx < self.utilization_history.len() {
                             let hist = &mut self.utilization_history[idx];
                             hist.push_back(gpu_info.utilization as f64);
-                            if hist.len() > HISTORY_SIZE {
+                            if hist.len() >= HISTORY_SIZE {
                                 hist.pop_front();
                             }
 
                             let mem_hist = &mut self.memory_history[idx];
                             mem_hist.push_back(gpu_info.memory_percent() as f64);
-                            if mem_hist.len() > HISTORY_SIZE {
+                            if mem_hist.len() >= HISTORY_SIZE {
                                 mem_hist.pop_front();
                             }
                         }
@@ -283,13 +283,13 @@ impl GpuMonitor {
                 if idx < self.utilization_history.len() {
                     let hist = &mut self.utilization_history[idx];
                     hist.push_back(info.utilization as f64);
-                    if hist.len() > HISTORY_SIZE {
+                    if hist.len() >= HISTORY_SIZE {
                         hist.pop_front();
                     }
 
                     let mem_hist = &mut self.memory_history[idx];
                     mem_hist.push_back(info.memory_percent() as f64);
-                    if mem_hist.len() > HISTORY_SIZE {
+                    if mem_hist.len() >= HISTORY_SIZE {
                         mem_hist.pop_front();
                     }
                 }
@@ -341,13 +341,13 @@ impl GpuMonitor {
                                 if gpu_idx < self.utilization_history.len() {
                                     let hist = &mut self.utilization_history[gpu_idx];
                                     hist.push_back(utilization as f64);
-                                    if hist.len() > HISTORY_SIZE {
+                                    if hist.len() >= HISTORY_SIZE {
                                         hist.pop_front();
                                     }
 
                                     let mem_hist = &mut self.memory_history[gpu_idx];
                                     mem_hist.push_back(0.0);
-                                    if mem_hist.len() > HISTORY_SIZE {
+                                    if mem_hist.len() >= HISTORY_SIZE {
                                         mem_hist.pop_front();
                                     }
                                 }

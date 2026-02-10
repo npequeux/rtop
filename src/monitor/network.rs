@@ -3,7 +3,7 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
 
-const HISTORY_SIZE: usize = 61;
+const HISTORY_SIZE: usize = 60;
 
 pub struct NetworkMonitor {
     networks: Networks,

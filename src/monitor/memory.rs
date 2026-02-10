@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 
-const HISTORY_SIZE: usize = 61;
+const HISTORY_SIZE: usize = 60;
 
 pub struct MemoryMonitor {
     system: System,

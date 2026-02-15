@@ -1,6 +1,6 @@
 [package]
 name = "rtop"
-version = "3.0.0"
+version = "3.0.2"
 edition = "2021"
 authors = ["Nicolas Pequeux"]
 description = "Advanced system monitoring dashboard with btop++-inspired features"

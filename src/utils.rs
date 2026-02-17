@@ -1,3 +1,26 @@
+//! Utility functions for formatting and display.
+//!
+//! This module provides helper functions for byte formatting and color constants
+//! used throughout the rtop application.
+
+/// Formats a byte value into a human-readable string with appropriate unit suffix.
+///
+/// # Arguments
+///
+/// * `bytes` - The number of bytes to format
+/// * `decimal` - If true, uses decimal (1000-based) units; if false, uses binary (1024-based) units
+///
+/// # Returns
+///
+/// A formatted string with two decimal places and the appropriate unit (B, KB/KiB, MB/MiB, etc.)
+///
+/// # Examples
+///
+/// ```
+/// # use rtop::format_bytes;
+/// assert_eq!(format_bytes(1024, false), "1.00 KiB");
+/// assert_eq!(format_bytes(1000, true), "1.00 KB");
+/// ```
 pub fn format_bytes(bytes: u64, decimal: bool) -> String {
     if bytes == 0 {
         return "0.00 B".to_string();
@@ -18,6 +41,9 @@ pub fn format_bytes(bytes: u64, decimal: bool) -> String {
     format!("{:.2} {}", value, units[exp])
 }
 
+/// Default color palette used for UI elements throughout the application.
+///
+/// Colors are ordered as: Magenta, Cyan, Blue, Yellow, Green, Red.
 pub const COLORS: [ratatui::style::Color; 6] = [
     ratatui::style::Color::Magenta,
     ratatui::style::Color::Cyan,

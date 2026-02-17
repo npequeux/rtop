@@ -1,30 +1,47 @@
+//! Error types for rtop application.
+//!
+//! This module defines custom error types used throughout the application
+//! using the thiserror crate for ergonomic error handling.
+
 use thiserror::Error;
 
+/// Application-specific error types.
+///
+/// Each variant represents a different category of error that can occur
+/// during rtop's operation.
 #[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum RtopError {
+    /// Failed to initialize or interact with the terminal
     #[error("Failed to initialize terminal: {0}")]
     TerminalInit(#[from] std::io::Error),
 
+    /// Configuration file loading or parsing error
     #[error("Configuration error: {0}")]
     Config(String),
 
+    /// Requested sensor is not available on this system
     #[error("Sensor not available: {0}")]
     SensorUnavailable(String),
 
+    /// Error during monitor data collection
     #[error("Failed to update monitor: {0}")]
     MonitorUpdate(String),
 
+    /// Error during data export operation
     #[error("Export error: {0}")]
     Export(String),
 
+    /// Insufficient permissions to access required resources
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 
+    /// Invalid user input or command argument
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
 
+/// Convenience type alias for Results using RtopError.
 #[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, RtopError>;
 

@@ -96,11 +96,7 @@ impl Cli {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// assert_eq!(Cli::parse_duration("1h")?, Duration::from_secs(3600));
-    /// assert_eq!(Cli::parse_duration("30m")?, Duration::from_secs(1800));
-    /// assert_eq!(Cli::parse_duration("60s")?, Duration::from_secs(60));
-    /// ```
+    /// Parses "1h" as 3600 seconds, "30m" as 1800 seconds, and "60s" as 60 seconds.
     pub fn parse_duration(duration: &str) -> anyhow::Result<std::time::Duration> {
         let duration = duration.trim();
 

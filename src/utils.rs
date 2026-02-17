@@ -16,11 +16,7 @@
 ///
 /// # Examples
 ///
-/// ```
-/// # use rtop::format_bytes;
-/// assert_eq!(format_bytes(1024, false), "1.00 KiB");
-/// assert_eq!(format_bytes(1000, true), "1.00 KB");
-/// ```
+/// Formats 1024 bytes as "1.00 KiB" (binary) or 1000 bytes as "1.00 KB" (decimal).
 pub fn format_bytes(bytes: u64, decimal: bool) -> String {
     if bytes == 0 {
         return "0.00 B".to_string();

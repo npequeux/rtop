@@ -409,12 +409,19 @@ impl App {
         let background = Block::default().style(Style::default().bg(Color::Rgb(10, 20, 40)));
         frame.render_widget(background, full_area);
 
+        let terminal_height = frame.area().height;
+        let _terminal_width = frame.area().width;
+
+        // Responsive header/footer sizing based on terminal height
+        let header_height = if terminal_height < 30 { 2 } else { 3 };
+        let footer_height = if terminal_height < 30 { 1 } else { 2 };
+
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Header
-                Constraint::Min(0),    // Content
-                Constraint::Length(2), // Footer/Status bar
+                Constraint::Length(header_height), // Header
+                Constraint::Min(0),                // Content
+                Constraint::Length(footer_height), // Footer/Status bar
             ])
             .split(frame.area());
 
@@ -444,12 +451,24 @@ impl App {
         let has_gpu = self.gpu_monitor.is_enabled() && self.gpu_monitor.gpu_count() > 0;
         let has_npu = self.npu_monitor.is_enabled() && self.npu_monitor.npu_count() > 0;
 
+        let terminal_height = area.height;
+        let terminal_width = area.width;
+
+        // Responsive vertical split based on terminal height
+        let (cpu_pct, mem_pct, bottom_pct) = if terminal_height < 25 {
+            (20, 18, 62) // Smaller top sections for small terminals
+        } else if terminal_height < 40 {
+            (22, 22, 56) // Default balanced layout
+        } else {
+            (24, 24, 52) // Larger top sections for big terminals
+        };
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(22), // CPU
-                Constraint::Percentage(22), // Memory & Swap combined
-                Constraint::Percentage(56), // Bottom section
+                Constraint::Percentage(cpu_pct),    // CPU
+                Constraint::Percentage(mem_pct),    // Memory & Swap combined
+                Constraint::Percentage(bottom_pct), // Bottom section
             ])
             .split(area);
 
@@ -460,9 +479,21 @@ impl App {
         self.draw_memory(frame, chunks[1]);
 
         // Bottom section: Left column (Network, Disk, GPU, NPU), Right column (Processes and Temperature)
+        // Adjust horizontal split based on terminal width
+        let (left_pct, right_pct) = if terminal_width < 100 {
+            (35, 65) // Give more space to processes on narrow terminals
+        } else if terminal_width < 150 {
+            (40, 60) // Default balanced layout
+        } else {
+            (38, 62) // More space for processes on wide terminals
+        };
+
         let bottom_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .constraints([
+                Constraint::Percentage(left_pct),
+                Constraint::Percentage(right_pct),
+            ])
             .split(chunks[2]);
 
         // Left column: Network, Disk, GPU, NPU (no temperature here)
@@ -526,11 +557,23 @@ impl App {
             }
         }
 
-        // Right column: Split horizontally into Processes (80%) and Temperature (20%)
+        // Right column: Split horizontally into Processes and Temperature
         if has_temp {
+            // Adjust temperature panel width based on terminal width
+            let temp_width = if terminal_width < 100 {
+                15 // Narrower temp panel on small terminals
+            } else if terminal_width < 150 {
+                20 // Default width
+            } else {
+                18 // Slightly narrower on wide terminals (more for processes)
+            };
+
             let right_chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+                .constraints([
+                    Constraint::Percentage(100 - temp_width),
+                    Constraint::Percentage(temp_width),
+                ])
                 .split(bottom_chunks[1]);
 
             self.draw_processes(frame, right_chunks[0]);
@@ -1146,9 +1189,17 @@ impl App {
             COLORS[5]
         };
 
-        // Create a compact horizontal bar
-        let available_width = area.width.saturating_sub(6).max(20) as usize;
-        let bar_length = available_width.min(40);
+        // Create a responsive horizontal bar based on available width
+        let available_width = area.width.saturating_sub(6).max(10) as usize;
+        // Scale bar length with terminal width
+        let bar_length = if area.width < 60 {
+            available_width.min(20)
+        } else if area.width < 100 {
+            available_width.min(35)
+        } else {
+            available_width.min(45)
+        };
+
         let filled = ((percent / 100.0 * bar_length as f32) as usize).min(bar_length);
         let mut bar = String::new();
         for i in 0..bar_length {
@@ -1163,46 +1214,75 @@ impl App {
 
         let available = total.saturating_sub(used);
 
-        let lines = vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::raw("  ["),
-                Span::styled(
-                    bar,
-                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw("]"),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(
-                    "  ● ",
-                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(
-                    format!("{:>5.1}%", percent),
-                    Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw("  Used: "),
-                Span::styled(
-                    format!("{:<10}", format_bytes(used, true)),
-                    Style::default()
-                        .fg(Color::White)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("  ○ ", Style::default().fg(Color::Green)),
-                Span::raw("Free:  "),
-                Span::styled(
-                    format!("{:<10}", format_bytes(available, true)),
-                    Style::default().fg(Color::Green),
-                ),
-                Span::raw("  Total: "),
-                Span::styled(format_bytes(total, true), Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(""),
-        ];
+        // Compact display for small areas
+        let lines = if area.height < 8 {
+            vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  ["),
+                    Span::styled(
+                        bar,
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("]"),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(
+                        "  ● ",
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:.1}%", percent),
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(" "),
+                    Span::styled(format_bytes(used, true), Style::default().fg(Color::White)),
+                    Span::raw("/"),
+                    Span::styled(format_bytes(total, true), Style::default().fg(Color::Cyan)),
+                ]),
+            ]
+        } else {
+            vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  ["),
+                    Span::styled(
+                        bar,
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("]"),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(
+                        "  ● ",
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:>5.1}%", percent),
+                        Style::default().fg(disk_color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("  Used: "),
+                    Span::styled(
+                        format!("{:<10}", format_bytes(used, true)),
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+                Line::from(vec![
+                    Span::styled("  ○ ", Style::default().fg(Color::Green)),
+                    Span::raw("Free:  "),
+                    Span::styled(
+                        format!("{:<10}", format_bytes(available, true)),
+                        Style::default().fg(Color::Green),
+                    ),
+                    Span::raw("  Total: "),
+                    Span::styled(format_bytes(total, true), Style::default().fg(Color::Cyan)),
+                ]),
+            ]
+        };
 
         let paragraph = Paragraph::new(lines).block(
             Block::default()
@@ -1227,7 +1307,8 @@ impl App {
         }
 
         let total_processes = processes.len();
-        let visible_count = (area.height as usize).saturating_sub(3).min(20);
+        // Calculate visible count based on actual area height (more responsive)
+        let visible_count = (area.height as usize).saturating_sub(4).max(5);
 
         let end_index = (self.process_scroll + visible_count).min(total_processes);
         let processes_slice = &processes[self.process_scroll..end_index];
@@ -1252,6 +1333,15 @@ impl App {
                 Style::default().bg(Color::Rgb(20, 20, 30))
             };
 
+            // Responsive process name length based on area width
+            let name_width = if area.width < 80 {
+                12
+            } else if area.width < 120 {
+                20
+            } else {
+                28
+            };
+
             let row = Row::new(vec![
                 if is_selected {
                     "▶".to_string()
@@ -1259,7 +1349,7 @@ impl App {
                     " ".to_string()
                 },
                 p.pid.to_string(),
-                p.name.chars().take(20).collect::<String>(),
+                p.name.chars().take(name_width).collect::<String>(),
                 format!("{:.1}%", p.cpu_usage),
                 format_bytes(p.memory, false),
             ])
@@ -1301,14 +1391,23 @@ impl App {
             Span::raw("Kill"),
         ];
 
+        // Responsive column widths based on area width
+        let (name_col_width, cpu_col_width, mem_col_width) = if area.width < 80 {
+            (12, 6, 8) // Compact for small terminals
+        } else if area.width < 120 {
+            (20, 7, 10) // Default
+        } else {
+            (28, 8, 12) // Expanded for large terminals
+        };
+
         let table = Table::new(
             rows,
             [
                 Constraint::Length(2),
                 Constraint::Length(7),
-                Constraint::Length(20),
-                Constraint::Length(7),
-                Constraint::Length(10),
+                Constraint::Length(name_col_width),
+                Constraint::Length(cpu_col_width),
+                Constraint::Length(mem_col_width),
             ],
         )
         .header(
@@ -1949,8 +2048,16 @@ impl App {
     }
 
     fn draw_help_overlay(&self, frame: &mut Frame, area: Rect) {
-        // Create centered popup
-        let popup_area = Self::centered_rect(60, 70, area);
+        // Create centered popup - responsive sizing based on terminal dimensions
+        let (width_pct, height_pct) = if area.width < 100 || area.height < 30 {
+            (90, 85) // Use more space on small terminals
+        } else if area.width < 150 || area.height < 40 {
+            (70, 75) // Medium terminals
+        } else {
+            (60, 70) // Large terminals
+        };
+
+        let popup_area = Self::centered_rect(width_pct, height_pct, area);
 
         // Clear the popup area
         let clear_block = Block::default().style(Style::default().bg(Color::Rgb(20, 30, 50)));

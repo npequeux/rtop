@@ -2,6 +2,67 @@
 
 All notable changes to rtop will be documented in this file.
 
+## [3.0.2] - 2026-02-17
+
+### Added
+
+#### btop++-inspired Features
+
+- **Advanced Graphics**: Braille/Unicode graphs with 2x data density for smoother visualization
+- **Theme System**: Color gradients and customizable TOML-based themes
+- **Process Tree View**: Hierarchical display of parent-child process relationships
+- **Enhanced Signals**: 9 different process signals (TERM, KILL, INT, HUP, QUIT, STOP, CONT, USR1, USR2)
+- **Sophisticated UI**: Rounded corners, gradient meters, multiple graph styles
+- **Extended Configuration**: Per-component customization and theming options
+
+#### GPU & NPU Monitoring
+
+- **GPU Support**: Full monitoring for Intel Arc, NVIDIA, and AMD GPUs
+  - GPU utilization percentage
+  - Memory usage and capacity tracking
+  - Real-time temperature monitoring
+  - Power consumption metrics
+  - Clock speeds display
+  - Fan speed tracking
+- **NPU Detection**: Neural Processing Unit support
+  - Intel VPU (Visual Processing Unit)
+  - AMD XDNA accelerators
+  - Apple Neural Engine detection
+  - AI accelerator utilization tracking
+
+#### Enhanced Interactive Features
+
+- **Mouse Support**: Full mouse wheel scrolling and click-to-select in process list
+- **Multi-page Navigation**: F2-F5 keys to switch between Overview/Processes/Network/Storage pages
+- **Advanced Process Control**: Enhanced process management with confirmation dialogs
+- **Regex Filtering**: Type `/` to enter filter mode with pattern matching
+- **Visual Indicators**: Active filter display, scroll position, and selection highlighting
+
+### Changed
+
+- **Improved Visuals**: Braille markers for smoother CPU graphs
+- **Enhanced Layout**: Memory/swap visualization with overlay
+- **Dynamic UI**: Layout automatically adapts to available hardware
+- **Optimized Display**: Compact temperature display
+- **Better GPU Support**: Intel Arc GPU via sysfs DRM interface
+- **Code Quality**: Removed unused dependencies, fixed all warnings
+
+### Fixed
+
+- All compilation warnings resolved
+- Improved GPU detection reliability
+- Better error handling for missing hardware
+- Enhanced terminal state restoration on panic
+- Fixed race conditions in update loops
+- Improved sensor detection edge cases
+
+### Performance
+
+- Optimized rendering with Braille characters
+- Efficient GPU polling mechanisms
+- Reduced memory footprint for graphs
+- Faster theme loading and processing
+
 ## [2.1.0] - 2026-02-01
 
 ### Added

@@ -1,15 +1,15 @@
 # Binary Size Report
 
 ```
--rwxr-xr-x 2 runner runner 3.3M Feb 17 17:22 target/release/rtop
+-rwxr-xr-x 2 runner runner 3.3M Feb 17 17:40 target/release/rtop
 
    text	   data	    bss	    dec	    hex	filename
-3223136	 183488	   1488	3408112	 3400f0	target/release/rtop
+3224328	 183488	   4384	3412200	 3410e8	target/release/rtop
 ```
 
 ## After stripping:
 ```
--rwxr-xr-x 2 runner runner 3.3M Feb 17 17:22 target/release/rtop
+-rwxr-xr-x 2 runner runner 3.3M Feb 17 17:40 target/release/rtop
 ```
 
 ## Startup Performance:

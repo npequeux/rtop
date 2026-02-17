@@ -109,10 +109,10 @@ pub struct Thresholds {
     /// Memory usage critical threshold percentage - default: 90.0
     #[serde(default = "default_memory_critical")]
     pub memory_critical: f32,
-    /// Temperature warning threshold in Celsius - default: 65.0
+    /// Temperature warning threshold in degrees Celsius - default: 65.0
     #[serde(default = "default_temp_warning")]
     pub temp_warning: f32,
-    /// Temperature critical threshold in Celsius - default: 80.0
+    /// Temperature critical threshold in degrees Celsius - default: 80.0
     #[serde(default = "default_temp_critical")]
     pub temp_critical: f32,
     /// Disk usage warning threshold percentage - default: 80.0

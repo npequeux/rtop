@@ -83,7 +83,7 @@ echo ""
 
 # 6. Test check
 echo "Running tests..."
-if cargo test --quiet 2>&1 | tail -1 | grep -q "test result: ok"; then
+if cargo test --quiet 2>&1 | grep -q "test result: ok"; then
     print_status 0 "All tests pass"
 else
     print_status 1 "Tests failed"

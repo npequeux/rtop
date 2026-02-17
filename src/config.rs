@@ -1,86 +1,135 @@
+//! Configuration management for rtop.
+//!
+//! This module handles loading, parsing, and managing configuration from TOML files.
+//! Configuration includes refresh rates, color themes, display options, alert thresholds,
+//! and export settings.
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// Main configuration structure containing all rtop settings.
+///
+/// This structure is deserialized from a TOML configuration file, typically located at
+/// `~/.config/rtop/config.toml`. All fields use serde defaults, allowing partial configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
+    /// Refresh rate settings for different monitoring components
     #[serde(default)]
     pub refresh_rates: RefreshRates,
+    /// Color theme and display settings
     #[serde(default)]
     pub colors: ColorConfig,
+    /// Display options for UI components
     #[serde(default)]
     pub display: DisplayConfig,
+    /// Alert threshold values for various metrics
     #[serde(default)]
     pub thresholds: Thresholds,
+    /// Export and logging configuration
     #[serde(default)]
     pub export: ExportConfig,
 }
 
+/// Refresh rate configuration for different monitoring components.
+///
+/// All values are in milliseconds. Lower values provide more frequent updates
+/// at the cost of increased CPU usage.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefreshRates {
+    /// CPU monitoring refresh interval in milliseconds (default: 1000ms)
     #[serde(default = "default_cpu_refresh")]
     pub cpu: u64,
+    /// Memory monitoring refresh interval in milliseconds (default: 1000ms)
     #[serde(default = "default_memory_refresh")]
     pub memory: u64,
+    /// Network monitoring refresh interval in milliseconds (default: 1000ms)
     #[serde(default = "default_network_refresh")]
     pub network: u64,
+    /// Disk monitoring refresh interval in milliseconds (default: 2000ms)
     #[serde(default = "default_disk_refresh")]
     pub disk: u64,
+    /// Process list refresh interval in milliseconds (default: 2000ms)
     #[serde(default = "default_process_refresh")]
     pub process: u64,
+    /// Temperature sensor refresh interval in milliseconds (default: 1000ms)
     #[serde(default = "default_temp_refresh")]
     pub temp: u64,
 }
 
+/// Color and theme configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorConfig {
+    /// Theme name (e.g., "cyan", "green", "blue") - default: "cyan"
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Enable colored output - default: true
     #[serde(default = "default_true")]
     pub enable_colors: bool,
 }
 
+/// Display options for UI components.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayConfig {
+    /// Display temperature monitoring panel - default: true
     #[serde(default = "default_true")]
     pub show_temperature: bool,
+    /// Display network monitoring panel - default: true
     #[serde(default = "default_true")]
     pub show_network: bool,
+    /// Display disk usage panel - default: true
     #[serde(default = "default_true")]
     pub show_disk: bool,
+    /// Maximum number of processes to display - default: 20
     #[serde(default = "default_max_processes")]
     pub max_processes: usize,
+    /// Show kernel processes in process list - default: false
     #[serde(default = "default_false")]
     pub show_kernel_processes: bool,
+    /// Show rtop itself in process list - default: true
     #[serde(default = "default_true")]
     pub show_self: bool,
 }
 
+/// Alert threshold values for various system metrics.
+///
+/// Thresholds are specified as percentages (0.0-100.0) or degrees Celsius for temperature.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Thresholds {
+    /// CPU usage warning threshold percentage - default: 60.0
     #[serde(default = "default_cpu_warning")]
     pub cpu_warning: f32,
+    /// CPU usage critical threshold percentage - default: 80.0
     #[serde(default = "default_cpu_critical")]
     pub cpu_critical: f32,
+    /// Memory usage warning threshold percentage - default: 70.0
     #[serde(default = "default_memory_warning")]
     pub memory_warning: f32,
+    /// Memory usage critical threshold percentage - default: 90.0
     #[serde(default = "default_memory_critical")]
     pub memory_critical: f32,
+    /// Temperature warning threshold in Celsius - default: 65.0
     #[serde(default = "default_temp_warning")]
     pub temp_warning: f32,
+    /// Temperature critical threshold in Celsius - default: 80.0
     #[serde(default = "default_temp_critical")]
     pub temp_critical: f32,
+    /// Disk usage warning threshold percentage - default: 80.0
     #[serde(default = "default_disk_warning")]
     pub disk_warning: f32,
 }
 
+/// Export and logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportConfig {
+    /// Enable continuous logging to file - default: false
     #[serde(default = "default_false")]
     pub enable_logging: bool,
+    /// Path to log file for continuous monitoring output
     #[serde(default)]
     pub log_path: Option<PathBuf>,
+    /// Logging interval in milliseconds - default: 5000ms
     #[serde(default = "default_log_interval")]
     pub log_interval: u64,
 }
@@ -201,6 +250,13 @@ impl Default for ExportConfig {
 }
 
 impl Config {
+    /// Loads configuration from the default config file path.
+    ///
+    /// Returns the default configuration if the config file doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config file exists but cannot be read or parsed.
     pub fn load() -> anyhow::Result<Self> {
         let config_path = Self::config_path()?;
 
@@ -213,6 +269,13 @@ impl Config {
         }
     }
 
+    /// Saves the current configuration to the config file.
+    ///
+    /// Creates parent directories if they don't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config directory cannot be created or the file cannot be written.
     pub fn save(&self) -> anyhow::Result<()> {
         let config_path = Self::config_path()?;
 
@@ -225,39 +288,57 @@ impl Config {
         Ok(())
     }
 
+    /// Creates and saves a default configuration file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config file cannot be created or written.
     pub fn create_default_config() -> anyhow::Result<()> {
         let config = Config::default();
         config.save()
     }
 
+    /// Returns the path to the configuration file.
+    ///
+    /// Typically `~/.config/rtop/config.toml` on Unix systems.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the system config directory cannot be determined.
     pub fn config_path() -> anyhow::Result<PathBuf> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
         Ok(config_dir.join("rtop").join("config.toml"))
     }
 
+    /// Returns the CPU refresh rate as a Duration.
     pub fn cpu_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.cpu)
     }
 
+    /// Returns the memory refresh rate as a Duration.
     #[allow(dead_code)]
     pub fn memory_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.memory)
     }
 
+    /// Returns the network refresh rate as a Duration.
     #[allow(dead_code)]
     pub fn network_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.network)
     }
 
+    /// Returns the disk refresh rate as a Duration.
     pub fn disk_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.disk)
     }
 
+    /// Returns the process refresh rate as a Duration.
     pub fn process_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.process)
     }
 
+    /// Returns the temperature refresh rate as a Duration.
     #[allow(dead_code)]
     pub fn temp_refresh_duration(&self) -> Duration {
         Duration::from_millis(self.refresh_rates.temp)

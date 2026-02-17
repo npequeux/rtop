@@ -1,6 +1,12 @@
+//! Command-line interface argument parsing for rtop.
+//!
+//! This module defines the CLI structure using clap for parsing command-line
+//! arguments and subcommands.
+
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+/// rtop - Advanced system monitoring dashboard for terminal.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 #[command(name = "rtop")]
@@ -54,6 +60,7 @@ pub struct Cli {
     pub command: Option<Commands>,
 }
 
+/// Available subcommands for rtop.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Show current configuration
@@ -75,6 +82,25 @@ pub enum Commands {
 }
 
 impl Cli {
+    /// Parses a duration string into a std::time::Duration.
+    ///
+    /// Accepts formats like "1h", "30m", "60s", or plain numbers (interpreted as seconds).
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - Duration string to parse
+    ///
+    /// # Returns
+    ///
+    /// A Duration if parsing succeeds, or an error if the format is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// assert_eq!(Cli::parse_duration("1h")?, Duration::from_secs(3600));
+    /// assert_eq!(Cli::parse_duration("30m")?, Duration::from_secs(1800));
+    /// assert_eq!(Cli::parse_duration("60s")?, Duration::from_secs(60));
+    /// ```
     pub fn parse_duration(duration: &str) -> anyhow::Result<std::time::Duration> {
         let duration = duration.trim();
 

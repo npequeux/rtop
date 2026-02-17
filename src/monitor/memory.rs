@@ -1,8 +1,15 @@
+//! Memory and swap usage monitoring with historical data.
+//!
+//! This module provides real-time memory and swap usage monitoring
+//! with historical data for graphing.
+
 use std::collections::VecDeque;
 use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 
+/// Number of historical data points to maintain.
 const HISTORY_SIZE: usize = 61;
 
+/// Monitors memory and swap usage with historical tracking.
 pub struct MemoryMonitor {
     system: System,
     mem_history: VecDeque<f32>,
@@ -10,6 +17,7 @@ pub struct MemoryMonitor {
 }
 
 impl MemoryMonitor {
+    /// Creates a new memory monitor.
     pub fn new() -> Self {
         let system = System::new_with_specifics(
             RefreshKind::new().with_memory(MemoryRefreshKind::everything()),
@@ -22,6 +30,7 @@ impl MemoryMonitor {
         }
     }
 
+    /// Updates memory and swap usage measurements and historical data.
     pub fn update(&mut self) {
         self.system.refresh_memory();
 

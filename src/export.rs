@@ -1,92 +1,162 @@
+//! Data export functionality for system metrics.
+//!
+//! This module provides structures and functions for exporting system monitoring
+//! data to various formats including JSON and CSV.
+
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
+/// Complete system metrics snapshot for export.
+///
+/// Contains all monitoring data collected at a specific point in time,
+/// including CPU, memory, network, disk, processes, temperature, and system information.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metrics {
+    /// ISO 8601 timestamp of when metrics were collected
     pub timestamp: String,
+    /// CPU usage metrics
     pub cpu: CpuMetrics,
+    /// Memory and swap usage metrics
     pub memory: MemoryMetrics,
+    /// Network transfer metrics
     pub network: NetworkMetrics,
+    /// Per-disk usage metrics
     pub disk: Vec<DiskMetrics>,
+    /// Top processes metrics
     pub processes: Vec<ProcessMetrics>,
+    /// Temperature sensor readings (optional, may not be available on all systems)
     pub temperature: Option<TempMetrics>,
+    /// System information
     pub system: SystemMetrics,
 }
 
+/// CPU usage metrics for all cores.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CpuMetrics {
+    /// Per-core usage statistics
     pub cores: Vec<CoreMetric>,
+    /// Average usage across all cores
     pub average: f32,
 }
 
+/// Individual CPU core usage metric.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CoreMetric {
+    /// Core ID (0-indexed)
     pub id: usize,
+    /// Usage percentage (0.0-100.0)
     pub usage: f32,
 }
 
+/// Memory and swap usage metrics.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MemoryMetrics {
+    /// Total physical memory in bytes
     pub total: u64,
+    /// Used physical memory in bytes
     pub used: u64,
+    /// Available physical memory in bytes
     pub available: u64,
+    /// Memory usage percentage
     pub percent: f32,
+    /// Total swap space in bytes
     pub swap_total: u64,
+    /// Used swap space in bytes
     pub swap_used: u64,
+    /// Swap usage percentage
     pub swap_percent: f32,
 }
 
+/// Network transfer metrics.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NetworkMetrics {
+    /// Total bytes received since system boot
     pub received: u64,
+    /// Total bytes transmitted since system boot
     pub transmitted: u64,
+    /// Current receive rate in bytes per second
     pub rx_rate: f64,
+    /// Current transmit rate in bytes per second
     pub tx_rate: f64,
 }
 
+/// Disk usage metrics for a single disk/partition.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskMetrics {
+    /// Device name
     pub name: String,
+    /// Mount point path
     pub mount_point: String,
+    /// Total disk space in bytes
     pub total: u64,
+    /// Available disk space in bytes
     pub available: u64,
+    /// Usage percentage
     pub percent: f32,
 }
 
+/// Process metrics for a single process.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProcessMetrics {
+    /// Process ID
     pub pid: u32,
+    /// Process name
     pub name: String,
+    /// CPU usage percentage
     pub cpu: f32,
+    /// Memory usage in bytes
     pub memory: u64,
+    /// Memory usage percentage
     pub memory_percent: f32,
 }
 
+/// Temperature sensor metrics.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TempMetrics {
+    /// Individual sensor readings
     pub sensors: Vec<SensorMetric>,
+    /// Average temperature across all sensors
     pub average: f32,
+    /// Maximum temperature across all sensors
     pub max: f32,
 }
 
+/// Individual temperature sensor reading.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SensorMetric {
+    /// Sensor name/label
     pub name: String,
+    /// Temperature in degrees Celsius
     pub temperature: f32,
 }
 
+/// System information metrics.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemMetrics {
+    /// System hostname
     pub hostname: String,
+    /// Operating system name
     pub os: String,
+    /// Kernel version
     pub kernel: String,
+    /// System uptime in seconds
     pub uptime: u64,
+    /// Load average (1min, 5min, 15min)
     pub load_average: (f64, f64, f64),
 }
 
 impl Metrics {
+    /// Exports metrics to a JSON file.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - File path where JSON will be written
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be created or written.
     pub fn export_json<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         let json = serde_json::to_string_pretty(self)?;
         let mut file = File::create(path)?;
@@ -94,6 +164,17 @@ impl Metrics {
         Ok(())
     }
 
+    /// Exports metrics to a CSV file.
+    ///
+    /// Exports a flattened view of the metrics suitable for time-series analysis.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - File path where CSV will be written
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be created or written.
     pub fn export_csv<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         let mut file = File::create(path)?;
 

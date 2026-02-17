@@ -1,14 +1,24 @@
+//! CPU monitoring with per-core usage tracking and historical data.
+//!
+//! This module provides real-time CPU usage monitoring for all cores
+//! with historical data for graphing.
+
 use std::collections::VecDeque;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
+/// Number of historical data points to maintain for each CPU core.
 const HISTORY_SIZE: usize = 61;
 
+/// Monitors CPU usage across all cores with historical tracking.
 pub struct CpuMonitor {
     system: System,
     history: Vec<VecDeque<f32>>,
 }
 
 impl CpuMonitor {
+    /// Creates a new CPU monitor and performs initial CPU measurement.
+    ///
+    /// Sleeps briefly to ensure accurate initial CPU usage readings.
     pub fn new() -> Self {
         let mut system =
             System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::everything()));
@@ -24,6 +34,9 @@ impl CpuMonitor {
         Self { system, history }
     }
 
+    /// Updates CPU usage measurements and historical data.
+    ///
+    /// Should be called periodically to maintain accurate usage tracking.
     pub fn update(&mut self) {
         self.system.refresh_cpu_all();
 

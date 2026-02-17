@@ -2,6 +2,12 @@
 
 All notable changes to rtop will be documented in this file.
 
+## [3.0.3] - 2026-02-17
+
+### Changed
+
+- Release version bump for testing release workflow and all GitHub Actions
+
 ## [2.1.0] - 2026-02-01
 
 ### Added
